@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Card } from '../types'
-import { useVoiceInput } from '../hooks/useVoiceInput'
+import { useVoiceInput, voiceSupported } from '../hooks/useVoiceInput'
 import './CardView.css'
 
 type FeedbackState = 'idle' | 'correct' | 'wrong'
@@ -15,19 +15,20 @@ interface Props {
 export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
   const [input, setInput] = useState('')
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
-  const [lastHeard, setLastHeard] = useState<string>('')
+  const [userAnswer, setUserAnswer] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const voice = useVoiceInput({
-    onNumber: (n) => submitAnswer(n),
-    onRaw: (text) => setLastHeard(text),
+  const { listening } = useVoiceInput({
+    active: feedback === 'idle',
+    onNumber: submitAnswer,
+    onRaw: () => {},
   })
 
   useEffect(() => {
     setInput('')
     setFeedback('idle')
-    setLastHeard('')
+    setUserAnswer(null)
     inputRef.current?.focus()
   }, [card])
 
@@ -40,20 +41,12 @@ export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
 
   function submitAnswer(answer: number) {
     if (feedback !== 'idle') return
+    setUserAnswer(answer)
     setFeedback(answer === card.a * card.b ? 'correct' : 'wrong')
   }
 
-  function submitTyped() {
-    if (feedback !== 'idle') {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      onResult(feedback === 'correct')
-      return
-    }
-    submitAnswer(parseInt(input, 10))
-  }
-
   function handleKey(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') submitTyped()
+    if (e.key === 'Enter' && input !== '') submitAnswer(parseInt(input, 10))
   }
 
   function handleSkip() {
@@ -62,60 +55,38 @@ export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
   }
 
   const correctAnswer = card.a * card.b
-  const isListening = voice.state === 'listening'
 
   return (
     <div className={`card-wrap ${feedback}`}>
       <div className="card">
-        <p className="question">
-          {card.a} × {card.b} = ?
-        </p>
+
+        {voiceSupported && (
+          <span className={`mic-indicator ${listening ? 'on' : ''}`} title="מיקרופון">🎤</span>
+        )}
+
+        <p className="question">{card.a} × {card.b} = ?</p>
 
         {feedback === 'idle' ? (
-          <div className="input-row">
-            <div className="typed-row">
-              <input
-                ref={inputRef}
-                type="number"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                placeholder="..."
-                className="answer-input"
-              />
-              <button
-                onClick={submitTyped}
-                className="btn-primary"
-                disabled={input === ''}
-              >
-                אישור
-              </button>
-            </div>
-
-            {voice.state !== 'unsupported' && (
-              <button
-                onClick={isListening ? voice.stop : voice.start}
-                className={`btn-mic ${isListening ? 'listening' : ''}`}
-                title={isListening ? 'עצור הקשבה' : 'ענה בקול'}
-              >
-                {isListening ? '⏹ מאזין…' : '🎤 דבר'}
-              </button>
-            )}
-
-            {lastHeard && (
-              <p className="heard-text">שמעתי: "{lastHeard}"</p>
-            )}
-          </div>
+          <input
+            ref={inputRef}
+            type="number"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="..."
+            className="answer-input"
+          />
         ) : (
           <div className="feedback-row">
-            {feedback === 'correct' ? (
-              <p className="feedback-text correct">נכון! 🎉</p>
-            ) : (
-              <p className="feedback-text wrong">התשובה הנכונה: {correctAnswer}</p>
-            )}
+            <p className="user-answer">{userAnswer}</p>
+            {feedback === 'correct'
+              ? <p className="feedback-text correct">נכון! 🎉</p>
+              : <p className="feedback-text wrong">התשובה הנכונה: {correctAnswer}</p>
+            }
             <button onClick={handleSkip} className="btn-skip">דלג</button>
           </div>
         )}
+
       </div>
     </div>
   )

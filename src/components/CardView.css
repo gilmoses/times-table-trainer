@@ -11,6 +11,7 @@
 .card-wrap.wrong   { background: #fee2e2; }
 
 .card {
+  position: relative;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.10);
@@ -22,21 +23,31 @@
   min-width: 320px;
 }
 
+.mic-indicator {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 18px;
+  opacity: 0.25;
+  transition: opacity 0.2s;
+
+  &.on {
+    opacity: 1;
+    animation: pulse 1s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
 .question {
   font-size: 64px;
   font-weight: 700;
   letter-spacing: -1px;
   color: #1a1a2e;
   margin: 0;
-}
-
-.input-row,
-.feedback-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
 }
 
 .answer-input {
@@ -51,24 +62,33 @@
 
   &:focus { border-color: #6366f1; }
 
-  /* hide number spinners */
   &::-webkit-outer-spin-button,
   &::-webkit-inner-spin-button { -webkit-appearance: none; }
   -moz-appearance: textfield;
 }
 
-.btn-primary {
-  background: #6366f1;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 12px 32px;
-  font-size: 18px;
-  font-weight: 600;
-  transition: background 0.2s, opacity 0.2s;
+.feedback-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
 
-  &:hover:not(:disabled) { background: #4f46e5; }
-  &:disabled { opacity: 0.4; cursor: default; }
+.user-answer {
+  font-size: 52px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.feedback-text {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+
+  &.correct { color: #059669; }
+  &.wrong   { color: #dc2626; }
 }
 
 .btn-skip {
@@ -81,51 +101,4 @@
   transition: background 0.2s;
 
   &:hover { background: #f3f4f6; }
-}
-
-.typed-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.btn-mic {
-  background: #f3f4f6;
-  color: #374151;
-  border: 2px solid #d1d5db;
-  border-radius: 10px;
-  padding: 10px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  transition: background 0.2s, border-color 0.2s;
-
-  &:hover { background: #e0e7ff; border-color: #6366f1; }
-
-  &.listening {
-    background: #fee2e2;
-    border-color: #ef4444;
-    color: #dc2626;
-    animation: pulse 1s infinite;
-  }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.6; }
-}
-
-.heard-text {
-  font-size: 13px;
-  color: #9ca3af;
-  margin: 0;
-  font-style: italic;
-}
-
-.feedback-text {
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0;
-
-  &.correct { color: #059669; }
-  &.wrong   { color: #dc2626; }
 }

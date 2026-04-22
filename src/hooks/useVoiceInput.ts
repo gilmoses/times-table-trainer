@@ -1,55 +1,76 @@
-import { useRef, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { parseHebrewNumber } from '../lib/hebrewNumbers'
 
-export type VoiceState = 'idle' | 'listening' | 'unsupported'
-
 interface Options {
+  active: boolean
   onNumber: (n: number) => void
   onRaw?: (text: string) => void
 }
 
-export function useVoiceInput({ onNumber, onRaw }: Options) {
-  const [state, setState] = useState<VoiceState>(() => {
-    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
-    return SR ? 'idle' : 'unsupported'
-  })
+const SR: any = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
+export const voiceSupported = !!SR
 
-  const recRef = useRef<any>(null)
+export function useVoiceInput({ active, onNumber, onRaw }: Options) {
+  const [listening, setListening] = useState(false)
+  const activeRef    = useRef(active)
+  const onNumberRef  = useRef(onNumber)
+  const onRawRef     = useRef(onRaw)
 
-  const start = useCallback(() => {
-    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
-    if (!SR || state === 'listening') return
+  useLayoutEffect(() => { activeRef.current   = active   }, [active])
+  useLayoutEffect(() => { onNumberRef.current = onNumber }, [onNumber])
+  useLayoutEffect(() => { onRawRef.current    = onRaw    }, [onRaw])
 
-    const rec = new SR()
-    rec.lang = 'he-IL'
-    rec.interimResults = false
-    rec.maxAlternatives = 5
+  useEffect(() => {
+    if (!SR) return
+    let cancelled = false
+    let rec: any = null
+    let restartTimer: ReturnType<typeof setTimeout>
 
-    rec.onstart = () => setState('listening')
-    rec.onend   = () => setState('idle')
-    rec.onerror = () => setState('idle')
+    function start() {
+      if (cancelled || !activeRef.current) return
+      rec = new SR()
+      rec.lang = 'he-IL'
+      rec.interimResults = false
+      rec.maxAlternatives = 5
 
-    rec.onresult = (e: any) => {
-      // try all alternatives, return first that parses
-      const results: string[] = []
-      for (let i = 0; i < e.results[0].length; i++) {
-        results.push(e.results[0][i].transcript)
+      rec.onstart = () => setListening(true)
+
+      rec.onend = () => {
+        setListening(false)
+        rec = null
+        if (!cancelled && activeRef.current)
+          restartTimer = setTimeout(start, 250)
       }
-      onRaw?.(results[0])
-      for (const r of results) {
-        const n = parseHebrewNumber(r)
-        if (n !== null) { onNumber(n); return }
+
+      rec.onerror = (e: any) => {
+        setListening(false)
+        rec = null
+        const fatal = e.error === 'not-allowed' || e.error === 'service-not-allowed'
+        if (!cancelled && activeRef.current && !fatal)
+          restartTimer = setTimeout(start, 600)
       }
+
+      rec.onresult = (e: any) => {
+        const alts: string[] = Array.from({ length: e.results[0].length },
+          (_, i) => e.results[0][i].transcript)
+        onRawRef.current?.(alts[0])
+        for (const r of alts) {
+          const n = parseHebrewNumber(r)
+          if (n !== null) { onNumberRef.current(n); return }
+        }
+      }
+
+      try { rec.start() } catch { rec = null }
     }
 
-    recRef.current = rec
-    rec.start()
-  }, [state, onNumber, onRaw])
+    if (active) start()
 
-  const stop = useCallback(() => {
-    recRef.current?.stop()
-    setState('idle')
-  }, [])
+    return () => {
+      cancelled = true
+      clearTimeout(restartTimer)
+      rec?.abort()
+    }
+  }, [active])
 
-  return { state, start, stop }
+  return { listening }
 }
