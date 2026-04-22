@@ -7,12 +7,15 @@ type FeedbackState = 'idle' | 'correct' | 'wrong'
 interface Props {
   card: Card
   onResult: (correct: boolean) => void
+  correctDelay: number
+  wrongDelay: number
 }
 
-export function CardView({ card, onResult }: Props) {
+export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
   const [input, setInput] = useState('')
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
   const inputRef = useRef<HTMLInputElement>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setInput('')
@@ -20,8 +23,17 @@ export function CardView({ card, onResult }: Props) {
     inputRef.current?.focus()
   }, [card])
 
+  // auto-advance after delay
+  useEffect(() => {
+    if (feedback === 'idle') return
+    const delay = feedback === 'correct' ? correctDelay : wrongDelay
+    timerRef.current = setTimeout(() => onResult(feedback === 'correct'), delay)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [feedback, correctDelay, wrongDelay, onResult])
+
   function submit() {
     if (feedback !== 'idle') {
+      if (timerRef.current) clearTimeout(timerRef.current)
       onResult(feedback === 'correct')
       return
     }
@@ -65,9 +77,7 @@ export function CardView({ card, onResult }: Props) {
             ) : (
               <p className="feedback-text wrong">התשובה הנכונה: {answer}</p>
             )}
-            <button onClick={submit} className="btn-primary">
-              הבא ←
-            </button>
+            <button onClick={submit} className="btn-skip">דלג</button>
           </div>
         )}
       </div>

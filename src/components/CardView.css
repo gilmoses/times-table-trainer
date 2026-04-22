@@ -71,6 +71,18 @@
   &:disabled { opacity: 0.4; cursor: default; }
 }
 
+.btn-skip {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 20px;
+  font-size: 14px;
+  transition: background 0.2s;
+
+  &:hover { background: #f3f4f6; }
+}
+
 .feedback-text {
   font-size: 28px;
   font-weight: 700;
