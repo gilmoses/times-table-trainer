@@ -83,6 +83,44 @@
   &:hover { background: #f3f4f6; }
 }
 
+.typed-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-mic {
+  background: #f3f4f6;
+  color: #374151;
+  border: 2px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.2s, border-color 0.2s;
+
+  &:hover { background: #e0e7ff; border-color: #6366f1; }
+
+  &.listening {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #dc2626;
+    animation: pulse 1s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.heard-text {
+  font-size: 13px;
+  color: #9ca3af;
+  margin: 0;
+  font-style: italic;
+}
+
 .feedback-text {
   font-size: 28px;
   font-weight: 700;

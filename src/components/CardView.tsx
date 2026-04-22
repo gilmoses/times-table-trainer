@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Card } from '../types'
+import { useVoiceInput } from '../hooks/useVoiceInput'
 import './CardView.css'
 
 type FeedbackState = 'idle' | 'correct' | 'wrong'
@@ -14,16 +15,22 @@ interface Props {
 export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
   const [input, setInput] = useState('')
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
+  const [lastHeard, setLastHeard] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const voice = useVoiceInput({
+    onNumber: (n) => submitAnswer(n),
+    onRaw: (text) => setLastHeard(text),
+  })
 
   useEffect(() => {
     setInput('')
     setFeedback('idle')
+    setLastHeard('')
     inputRef.current?.focus()
   }, [card])
 
-  // auto-advance after delay
   useEffect(() => {
     if (feedback === 'idle') return
     const delay = feedback === 'correct' ? correctDelay : wrongDelay
@@ -31,22 +38,31 @@ export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [feedback, correctDelay, wrongDelay, onResult])
 
-  function submit() {
+  function submitAnswer(answer: number) {
+    if (feedback !== 'idle') return
+    setFeedback(answer === card.a * card.b ? 'correct' : 'wrong')
+  }
+
+  function submitTyped() {
     if (feedback !== 'idle') {
       if (timerRef.current) clearTimeout(timerRef.current)
       onResult(feedback === 'correct')
       return
     }
-    const answer = parseInt(input, 10)
-    const correct = answer === card.a * card.b
-    setFeedback(correct ? 'correct' : 'wrong')
+    submitAnswer(parseInt(input, 10))
   }
 
   function handleKey(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') submit()
+    if (e.key === 'Enter') submitTyped()
   }
 
-  const answer = card.a * card.b
+  function handleSkip() {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    onResult(feedback === 'correct')
+  }
+
+  const correctAnswer = card.a * card.b
+  const isListening = voice.state === 'listening'
 
   return (
     <div className={`card-wrap ${feedback}`}>
@@ -57,27 +73,47 @@ export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
 
         {feedback === 'idle' ? (
           <div className="input-row">
-            <input
-              ref={inputRef}
-              type="number"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder="..."
-              className="answer-input"
-            />
-            <button onClick={submit} className="btn-primary" disabled={input === ''}>
-              אישור
-            </button>
+            <div className="typed-row">
+              <input
+                ref={inputRef}
+                type="number"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder="..."
+                className="answer-input"
+              />
+              <button
+                onClick={submitTyped}
+                className="btn-primary"
+                disabled={input === ''}
+              >
+                אישור
+              </button>
+            </div>
+
+            {voice.state !== 'unsupported' && (
+              <button
+                onClick={isListening ? voice.stop : voice.start}
+                className={`btn-mic ${isListening ? 'listening' : ''}`}
+                title={isListening ? 'עצור הקשבה' : 'ענה בקול'}
+              >
+                {isListening ? '⏹ מאזין…' : '🎤 דבר'}
+              </button>
+            )}
+
+            {lastHeard && (
+              <p className="heard-text">שמעתי: "{lastHeard}"</p>
+            )}
           </div>
         ) : (
           <div className="feedback-row">
             {feedback === 'correct' ? (
               <p className="feedback-text correct">נכון! 🎉</p>
             ) : (
-              <p className="feedback-text wrong">התשובה הנכונה: {answer}</p>
+              <p className="feedback-text wrong">התשובה הנכונה: {correctAnswer}</p>
             )}
-            <button onClick={submit} className="btn-skip">דלג</button>
+            <button onClick={handleSkip} className="btn-skip">דלג</button>
           </div>
         )}
       </div>
