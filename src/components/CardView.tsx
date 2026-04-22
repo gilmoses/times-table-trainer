@@ -5,14 +5,17 @@ import './CardView.css'
 
 type FeedbackState = 'idle' | 'correct' | 'wrong'
 
+const STOP_COMMANDS = ['סטופ', 'עצור', 'הפסק', 'stop']
+
 interface Props {
   card: Card
   onResult: (correct: boolean) => void
+  onStop: () => void
   correctDelay: number
   wrongDelay: number
 }
 
-export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
+export function CardView({ card, onResult, onStop, correctDelay, wrongDelay }: Props) {
   const [input, setInput] = useState('')
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
   const [userAnswer, setUserAnswer] = useState<number | null>(null)
@@ -22,7 +25,7 @@ export function CardView({ card, onResult, correctDelay, wrongDelay }: Props) {
   const { listening } = useVoiceInput({
     active: feedback === 'idle',
     onNumber: submitAnswer,
-    onRaw: () => {},
+    onRaw: (text) => { if (STOP_COMMANDS.includes(text.trim().toLowerCase())) onStop() },
   })
 
   useEffect(() => {

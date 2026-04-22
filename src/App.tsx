@@ -60,7 +60,7 @@ export default function App() {
         <div className="quit-screen">
           <h1>סיום</h1>
           <p className="quit-score">✓ {correct} &nbsp; ✗ {wrong} &nbsp; ({pct}%)</p>
-          <button className="btn-primary" onClick={handleRestart}>שחק שוב</button>
+          <button className="btn-primary" onClick={handleRestart}>שחקו שוב</button>
         </div>
       </div>
     )
@@ -81,6 +81,7 @@ export default function App() {
       <CardView
         card={current}
         onResult={handleResult}
+        onStop={handleQuit}
         correctDelay={correctDelay}
         wrongDelay={wrongDelay}
       />
