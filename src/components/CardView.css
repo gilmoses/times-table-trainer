@@ -7,8 +7,9 @@
   border-radius: 16px;
 }
 
-.card-wrap.correct { background: #d1fae5; }
-.card-wrap.wrong   { background: #fee2e2; }
+.card-wrap.correct   { background: #d1fae5; }
+.card-wrap.wrong     { background: #fee2e2; }
+.card-wrap.revealing { background: #dbeafe; }
 
 .card {
   position: relative;
@@ -89,6 +90,22 @@
 
   &.correct { color: #059669; }
   &.wrong   { color: #dc2626; }
+}
+
+.countdown {
+  font-size: 22px;
+  font-weight: 700;
+  color: #9ca3af;
+  line-height: 1;
+
+  &.urgent { color: #dc2626; }
+}
+
+.reveal-answer {
+  font-size: 72px;
+  font-weight: 700;
+  color: #2563eb;
+  margin: 0;
 }
 
 .btn-skip {
