@@ -120,3 +120,16 @@
     width: 100%;
   }
 }
+
+.dev-btn-reset {
+  background: #f38ba8;
+  color: #1e1e2e;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: #eba0ac; }
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CardView } from './components/CardView'
-import { buildDeck, pickNextCard } from './lib/cards'
+import { loadDeck, saveDeck, resetDeck, pickNextCard } from './lib/cards'
+import { updateCard } from './lib/sm2'
 import type { Card } from './types'
 import './App.css'
 
@@ -10,12 +11,11 @@ const DEV = import.meta.env.DEV
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('playing')
-  const [deck] = useState<Card[]>(() => buildDeck())
-  const [current, setCurrent] = useState<Card>(() => pickNextCard(buildDeck()))
+  const [deck, setDeck] = useState<Card[]>(() => loadDeck())
+  const [current, setCurrent] = useState<Card>(() => pickNextCard(loadDeck()))
   const [correct, setCorrect] = useState(0)
   const [wrong, setWrong] = useState(0)
 
-  // dev controls
   const [correctDelay, setCorrectDelay] = useState(1000)
   const [wrongDelay, setWrongDelay] = useState(2000)
   const [devOpen, setDevOpen] = useState(false)
@@ -23,7 +23,12 @@ export default function App() {
   function handleResult(wasCorrect: boolean) {
     if (wasCorrect) setCorrect(c => c + 1)
     else setWrong(w => w + 1)
-    setCurrent(pickNextCard(deck))
+
+    const updatedCard = updateCard(current, wasCorrect)
+    const newDeck = deck.map(c => (c.a === current.a && c.b === current.b) ? updatedCard : c)
+    saveDeck(newDeck)
+    setDeck(newDeck)
+    setCurrent(pickNextCard(newDeck, updatedCard))
   }
 
   function handleQuit() {
@@ -33,7 +38,17 @@ export default function App() {
   function handleRestart() {
     setCorrect(0)
     setWrong(0)
-    setCurrent(pickNextCard(buildDeck()))
+    const deck = loadDeck()
+    setCurrent(pickNextCard(deck))
+    setScreen('playing')
+  }
+
+  function handleResetProgress() {
+    const fresh = resetDeck()
+    setDeck(fresh)
+    setCorrect(0)
+    setWrong(0)
+    setCurrent(pickNextCard(fresh))
     setScreen('playing')
   }
 
@@ -79,24 +94,17 @@ export default function App() {
             <div className="dev-controls">
               <label>
                 Correct delay (ms)
-                <input
-                  type="number"
-                  value={correctDelay}
-                  min={0}
-                  step={100}
-                  onChange={e => setCorrectDelay(Number(e.target.value))}
-                />
+                <input type="number" value={correctDelay} min={0} step={100}
+                  onChange={e => setCorrectDelay(Number(e.target.value))} />
               </label>
               <label>
                 Wrong delay (ms)
-                <input
-                  type="number"
-                  value={wrongDelay}
-                  min={0}
-                  step={100}
-                  onChange={e => setWrongDelay(Number(e.target.value))}
-                />
+                <input type="number" value={wrongDelay} min={0} step={100}
+                  onChange={e => setWrongDelay(Number(e.target.value))} />
               </label>
+              <button className="dev-btn-reset" onClick={handleResetProgress}>
+                Reset progress
+              </button>
             </div>
           )}
         </div>
