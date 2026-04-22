@@ -92,6 +92,13 @@ export default function App() {
           </button>
           {devOpen && (
             <div className="dev-controls">
+              <div className="dev-sm2">
+                <span className="dev-sm2-title">SM-2 — {current.a} × {current.b}</span>
+                <span>repetitions <b>{current.repetitions}</b></span>
+                <span>interval <b>{current.interval}d</b></span>
+                <span>easeFactor <b>{current.easeFactor.toFixed(2)}</b></span>
+                <span>next review <b>{current.interval === 0 ? 'now' : new Date(current.nextReview).toLocaleDateString()}</b></span>
+              </div>
               <label>
                 Correct delay (ms)
                 <input type="number" value={correctDelay} min={0} step={100}
