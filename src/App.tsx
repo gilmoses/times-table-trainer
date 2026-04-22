@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { CardView } from './components/CardView'
 import { loadDeck, saveDeck, resetDeck, pickNextCard } from './lib/cards'
 import { updateCard } from './lib/sm2'
+import { DECK_COLORS, DECK_TEXT } from './lib/colors'
 import type { Card } from './types'
 import './App.css'
 
@@ -119,7 +120,12 @@ export default function App() {
           <p className="menu-subtitle">בחרו לוח</p>
           <div className="deck-grid">
             {TABLE_DECKS.map(n => (
-              <button key={n} className="btn-deck" onClick={() => handleStartDeck(n)}>
+              <button
+                key={n}
+                className="btn-deck"
+                style={{ background: DECK_COLORS[n], color: DECK_TEXT[n] }}
+                onClick={() => handleStartDeck(n)}
+              >
                 {n}×
               </button>
             ))}
@@ -136,14 +142,14 @@ export default function App() {
     const total = correct + wrong
     const pct = total > 0 ? Math.round((correct / total) * 100) : 0
     const avgSec = sessionTimes.length > 0
-      ? (sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length / 1000).toFixed(1)
+      ? parseFloat((sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length / 1000).toFixed(1))
       : null
     return (
       <div className="app">
         <div className="quit-screen">
           <h1>סיום</h1>
           <p className="quit-score">✓ {correct} &nbsp; ✗ {wrong} &nbsp; ({pct}%)</p>
-          {avgSec !== null && <p className="quit-stat">זמן ממוצע: {avgSec}s</p>}
+          {avgSec !== null && <p className="quit-stat">זמן ממוצע: {avgSec} שניות</p>}
           <button className="btn-primary" onClick={handleRestart}>שחקו שוב</button>
           <button className="btn-secondary" onClick={handleBackToMenu}>בחרו לוח</button>
         </div>

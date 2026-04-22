@@ -67,17 +67,15 @@
 }
 
 .btn-deck {
-  background: #6366f1;
-  color: #fff;
   border: none;
   border-radius: 12px;
   padding: 20px 24px;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   min-width: 80px;
-  transition: background 0.15s, transform 0.1s;
+  transition: filter 0.15s, transform 0.1s;
 
-  &:hover  { background: #4f46e5; transform: scale(1.04); }
+  &:hover  { filter: brightness(0.9); transform: scale(1.04); }
   &:active { transform: scale(0.97); }
 }
 
