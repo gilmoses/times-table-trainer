@@ -67,30 +67,55 @@
 }
 
 .btn-deck {
+  position: relative;
   border: none;
   border-radius: 12px;
   padding: 20px 24px;
   font-size: 26px;
   font-weight: 700;
   min-width: 80px;
-  transition: filter 0.15s, transform 0.1s;
+  opacity: 0.5;
+  transition: opacity 0.15s, filter 0.15s, transform 0.1s, box-shadow 0.15s;
 
-  &:hover  { filter: brightness(0.9); transform: scale(1.04); }
+  &.selected {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.15);
+  }
+
+  &:hover  { opacity: 0.8; filter: brightness(0.92); transform: scale(1.04); }
   &:active { transform: scale(0.97); }
 }
 
-.btn-full-deck {
+.deck-checkmark {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* deck action row: select-all + start */
+.deck-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
-  background: #e0e7ff;
-  color: #4f46e5;
-  border: 2px solid #c7d2fe;
-  border-radius: 12px;
-  padding: 14px;
-  font-size: 18px;
-  font-weight: 700;
+}
+
+.btn-select-all {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 600;
   transition: background 0.15s;
 
-  &:hover { background: #c7d2fe; }
+  &:hover { background: #f3f4f6; }
 }
 
 /* quit / summary screen */
@@ -140,7 +165,8 @@
   font-weight: 600;
   transition: background 0.2s;
 
-  &:hover { background: #4f46e5; }
+  &:hover    { background: #4f46e5; }
+  &:disabled { opacity: 0.35; cursor: default; }
 }
 
 /* mic icon button in topbar */

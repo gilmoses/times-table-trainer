@@ -7,7 +7,7 @@ import { voiceSupported } from './hooks/useVoiceInput'
 import type { Card } from './types'
 import './App.css'
 
-type Screen = 'menu' | 'playing' | 'quit' | 'race-results'
+type Screen = 'menu' | 'race-ready' | 'playing' | 'quit' | 'race-results'
 
 const DEV = import.meta.env.DEV
 const DEV_SETTINGS_KEY = 'times-table-dev'
@@ -16,7 +16,7 @@ const BEST_SCORES_KEY = 'times-table-best'
 const TABLE_DECKS = [2, 3, 4, 5, 6, 7, 8, 9]
 const RACE_DURATIONS = [30, 60, 120]
 
-// ── dev settings ────────────────────────────────────────────────────────────
+// ── dev settings ─────────────────────────────────────────────────────────────
 
 interface DevSettings {
   correctDelay: number
@@ -35,7 +35,7 @@ function loadDevSettings(): DevSettings {
   return defaults
 }
 
-// ── user settings ────────────────────────────────────────────────────────────
+// ── user settings ─────────────────────────────────────────────────────────────
 
 interface UserSettings {
   micEnabled: boolean
@@ -52,13 +52,14 @@ function loadSettings(): UserSettings {
   return defaults
 }
 
-// ── best scores ──────────────────────────────────────────────────────────────
+// ── best scores ───────────────────────────────────────────────────────────────
 
-function bestScoreKey(deckFilter: number | null, duration: number) {
-  return `${deckFilter ?? 'full'}-${duration}`
+function bestScoreKey(deckFilter: number[] | null, duration: number) {
+  const deckStr = deckFilter === null ? 'full' : [...deckFilter].sort((a, b) => a - b).join(',')
+  return `${deckStr}-${duration}`
 }
 
-function loadBestScore(deckFilter: number | null, duration: number): number {
+function loadBestScore(deckFilter: number[] | null, duration: number): number {
   try {
     const raw = localStorage.getItem(BEST_SCORES_KEY)
     if (raw) return (JSON.parse(raw) as Record<string, number>)[bestScoreKey(deckFilter, duration)] ?? 0
@@ -66,7 +67,7 @@ function loadBestScore(deckFilter: number | null, duration: number): number {
   return 0
 }
 
-function saveBestScore(deckFilter: number | null, duration: number, score: number) {
+function saveBestScore(deckFilter: number[] | null, duration: number, score: number) {
   try {
     const raw = localStorage.getItem(BEST_SCORES_KEY)
     const scores = raw ? JSON.parse(raw) as Record<string, number> : {}
@@ -78,17 +79,20 @@ function saveBestScore(deckFilter: number | null, duration: number, score: numbe
   } catch { /* ignore */ }
 }
 
-// ── component ────────────────────────────────────────────────────────────────
+// ── component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu')
   const [deck, setDeck] = useState<Card[]>(() => loadDeck())
-  const [deckFilter, setDeckFilter] = useState<number | null>(null)
+  const [deckFilter, setDeckFilter] = useState<number[] | null>(null)
   const [current, setCurrent] = useState<Card>(() => pickNextCard(loadDeck()))
   const [correct, setCorrect] = useState(0)
   const [wrong, setWrong] = useState(0)
   const [sessionErrors, setSessionErrors] = useState<Record<string, number>>({})
   const [sessionTimes, setSessionTimes] = useState<number[]>([])
+
+  // deck selection (menu)
+  const [selectedDecks, setSelectedDecks] = useState<number[]>([])
 
   // user settings
   const [micEnabled, setMicEnabled] = useState(() => loadSettings().micEnabled)
@@ -130,13 +134,13 @@ export default function App() {
     setScreen('race-results')
   }, [raceTimeLeft, correct, screen, raceModeEnabled, deckFilter, raceDuration])
 
-  // ── helpers ──────────────────────────────────────────────────────────────
+  // ── helpers ───────────────────────────────────────────────────────────────
 
-  function activeCards(d: Card[], filter: number | null) {
-    return filter === null ? d : d.filter(c => c.a === filter)
+  function activeCards(d: Card[], filter: number[] | null) {
+    return filter === null ? d : d.filter(c => filter.includes(c.a))
   }
 
-  function handleStartDeck(filter: number | null) {
+  function handleStartDeck(filter: number[] | null) {
     const d = loadDeck()
     setDeckFilter(filter)
     setCorrect(0)
@@ -144,6 +148,13 @@ export default function App() {
     setSessionErrors({})
     setSessionTimes([])
     setCurrent(pickNextCard(activeCards(d, filter)))
+    setScreen(raceModeEnabled ? 'race-ready' : 'playing')
+  }
+
+  function handleRaceStart() {
+    // set raceTimeLeft in the same batch as screen change so the end-race
+    // effect never sees raceTimeLeft=0 when screen first becomes 'playing'
+    setRaceTimeLeft(raceDuration)
     setScreen('playing')
   }
 
@@ -180,7 +191,12 @@ export default function App() {
     setSessionErrors({})
     setSessionTimes([])
     setCurrent(pickNextCard(activeCards(d, deckFilter)))
-    setScreen('playing')
+    if (raceModeEnabled) {
+      setRaceTimeLeft(raceDuration)
+      setScreen('playing')
+    } else {
+      setScreen('playing')
+    }
   }
 
   function handleBackToMenu() {
@@ -198,29 +214,51 @@ export default function App() {
     setScreen('playing')
   }
 
-  // ── screens ───────────────────────────────────────────────────────────────
+  function toggleDeck(n: number) {
+    setSelectedDecks(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n])
+  }
+
+  // ── screens ────────────────────────────────────────────────────────────────
 
   if (screen === 'menu') {
+    const allSelected = selectedDecks.length === TABLE_DECKS.length
+    const filter: number[] | null = allSelected ? null : selectedDecks
     return (
       <div className="app">
         <div className="menu-screen">
           <h1 className="title">לוח הכפל</h1>
-          <p className="menu-subtitle">בחרו לוח</p>
+          <p className="menu-subtitle">בחרו לוחות</p>
           <div className="deck-grid">
-            {TABLE_DECKS.map(n => (
-              <button
-                key={n}
-                className="btn-deck"
-                style={{ background: DECK_COLORS[n], color: DECK_TEXT[n] }}
-                onClick={() => handleStartDeck(n)}
-              >
-                {n}×
-              </button>
-            ))}
+            {TABLE_DECKS.map(n => {
+              const sel = selectedDecks.includes(n)
+              return (
+                <button
+                  key={n}
+                  className={`btn-deck${sel ? ' selected' : ''}`}
+                  style={{ background: DECK_COLORS[n], color: DECK_TEXT[n] }}
+                  onClick={() => toggleDeck(n)}
+                >
+                  {sel && <span className="deck-checkmark">✓</span>}
+                  {n}×
+                </button>
+              )
+            })}
           </div>
-          <button className="btn-full-deck" onClick={() => handleStartDeck(null)}>
-            כל הלוח
-          </button>
+
+          <div className="deck-actions">
+            <button className="btn-select-all" onClick={() =>
+              setSelectedDecks(allSelected ? [] : [...TABLE_DECKS])
+            }>
+              {allSelected ? 'בטל הכל' : 'בחר הכל'}
+            </button>
+            <button
+              className="btn-primary"
+              disabled={selectedDecks.length === 0}
+              onClick={() => handleStartDeck(filter)}
+            >
+              התחל
+            </button>
+          </div>
 
           <div className="menu-settings">
             {voiceSupported && (
@@ -253,6 +291,25 @@ export default function App() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (screen === 'race-ready') {
+    const deckLabel = deckFilter === null
+      ? 'כל הלוח'
+      : deckFilter.length === 1
+        ? `${deckFilter[0]}×`
+        : [...deckFilter].sort((a, b) => a - b).map(n => `${n}×`).join('  ')
+    const durationLabel = raceDuration >= 60 ? `${raceDuration / 60}′` : `${raceDuration}″`
+    return (
+      <div className="app">
+        <div className="quit-screen">
+          <h1>מוכנים?</h1>
+          <p className="quit-stat">{deckLabel} · {durationLabel}</p>
+          <button className="btn-primary" onClick={handleRaceStart}>התחל!</button>
+          <button className="btn-secondary" onClick={handleBackToMenu}>חזרה</button>
         </div>
       </div>
     )
@@ -299,11 +356,14 @@ export default function App() {
   // playing screen
   const raceBarPct = raceModeEnabled ? (raceTimeLeft / raceDuration) * 100 : 0
   const raceUrgent = raceModeEnabled && raceTimeLeft <= 5
+  const deckTitle = deckFilter !== null && deckFilter.length === 1
+    ? `${deckFilter[0]}×`
+    : 'לוח הכפל'
 
   return (
     <div className="app">
       <div className="topbar">
-        <h1 className="title">{deckFilter !== null ? `${deckFilter}×` : 'לוח הכפל'}</h1>
+        <h1 className="title">{deckTitle}</h1>
         {voiceSupported && (
           <button
             className={`btn-icon${micEnabled ? '' : ' muted'}`}
@@ -341,7 +401,7 @@ export default function App() {
         correctDelay={correctDelay}
         wrongDelay={wrongDelay}
         revealDuration={revealDuration}
-        timeLimitEnabled={timeLimitEnabled}
+        timeLimitEnabled={timeLimitEnabled && !raceModeEnabled}
         timeLimit={timeLimit}
       />
 

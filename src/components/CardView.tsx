@@ -55,7 +55,9 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
     setIdlePhase(p => p + 1)
   }, [card])
 
-  useEffect(() => { inputRef.current?.focus() }, [card])
+  useEffect(() => {
+    if (feedback === 'idle') inputRef.current?.focus()
+  }, [feedback])
 
   // Countdown display — stops (and doesn't restart) once tainted
   useEffect(() => {
