@@ -14,6 +14,7 @@ interface Props {
   card: Card
   onResult: (correct: boolean, timeMs: number) => void
   onStop: () => void
+  micEnabled: boolean
   correctDelay: number
   wrongDelay: number
   revealDuration: number
@@ -21,7 +22,7 @@ interface Props {
   timeLimit: number
 }
 
-export function CardView({ card, onResult, onStop, correctDelay, wrongDelay, revealDuration, timeLimitEnabled, timeLimit }: Props) {
+export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wrongDelay, revealDuration, timeLimitEnabled, timeLimit }: Props) {
   const [input, setInput] = useState('')
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
   const [userAnswer, setUserAnswer] = useState<number | null>(null)
@@ -34,7 +35,7 @@ export function CardView({ card, onResult, onStop, correctDelay, wrongDelay, rev
   const timeMsRef = useRef<number>(0)
 
   const { listening } = useVoiceInput({
-    active: feedback === 'idle',
+    active: micEnabled && feedback === 'idle',
     onNumber: submitAnswer,
     onRaw: (text) => {
       const t = text.trim()

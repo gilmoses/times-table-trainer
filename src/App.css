@@ -143,6 +143,133 @@
   &:hover { background: #4f46e5; }
 }
 
+/* mic icon button in topbar */
+.btn-icon {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.2s;
+
+  &.muted { opacity: 0.35; }
+}
+
+/* menu settings rows */
+.menu-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.setting-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* toggle pill */
+.toggle-pill {
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  border: none;
+  background: #d1d5db;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+  }
+
+  &.on {
+    background: #6366f1;
+
+    &::after { transform: translateX(22px); }
+  }
+}
+
+/* race duration picker */
+.race-duration-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.btn-duration {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover { background: #e0e7ff; border-color: #c7d2fe; }
+  &.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+}
+
+/* race countdown bar */
+.race-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(380px, 88vw);
+}
+
+.race-bar-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.race-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: #22c55e;
+  transition: width 1s linear, background-color 0.5s;
+
+  &.urgent { background: #ef4444; }
+}
+
+.race-time {
+  font-size: 20px;
+  font-weight: 700;
+  color: #374151;
+  min-width: 28px;
+  text-align: right;
+
+  &.urgent { color: #dc2626; }
+}
+
+/* best score highlight */
+.quit-stat.best {
+  color: #d97706;
+  font-weight: 700;
+  font-size: 20px;
+}
+
 /* dev panel */
 .dev-panel {
   position: fixed;
