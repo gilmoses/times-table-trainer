@@ -3,6 +3,7 @@
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  width: 100%;
 }
 
 .mic-indicator {
@@ -23,12 +24,11 @@
   50%       { opacity: 0.35; }
 }
 
-/* 3-D scene */
+/* 3-D scene — no perspective here so it doesn't create a stacking context */
 .card-scene {
-  perspective: 1200px;
-  width: min(380px, 88vw);
-  height: min(240px, 56vw);
-  position: relative; /* anchor for deck shadows and outgoing overlay */
+  width: 100%;
+  aspect-ratio: 380 / 240;
+  position: relative;
 }
 
 /* deck-of-cards depth effect — two shadow cards behind the active card */
@@ -40,13 +40,20 @@
 }
 
 .deck-shadow.s2 {
-  transform: rotate(-4deg) translate(-7px, 6px);
+  transform: translate(-8px, -8px);
   opacity: 0.38;
 }
 
 .deck-shadow.s1 {
-  transform: rotate(-2deg) translate(-3px, 3px);
+  transform: translate(-4px, -4px);
   opacity: 0.62;
+}
+
+/* perspective wrapper — isolates 3D context inside card-scene */
+.card-perspective {
+  position: absolute;
+  inset: 0;
+  perspective: 1200px;
 }
 
 /* outgoing card — overlays the scene, animates to the discard pile */
@@ -64,8 +71,8 @@
 }
 
 @keyframes discard-fly {
-  0%   { transform: translate(0, 0)              scale(1)    rotate(0deg);   opacity: 1;    }
-  100% { transform: translate(-42vw, 50vh) scale(0.16)  rotate(-14deg);  opacity: 0.7;  }
+  0%   { transform: translate(0, 0)                   scale(1);   opacity: 1; }
+  100% { transform: translate(calc(-75% - 12px), 0)   scale(0.5); opacity: 1; }
 }
 
 .card-flip {
@@ -167,7 +174,7 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  width: min(380px, 88vw);
+  width: 100%;
 }
 
 .time-bar-track {

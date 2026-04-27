@@ -90,6 +90,7 @@ export default function App() {
   const [wrong, setWrong] = useState(0)
   const [sessionErrors, setSessionErrors] = useState<Record<string, number>>({})
   const [sessionTimes, setSessionTimes] = useState<number[]>([])
+  const [lastDiscard, setLastDiscard] = useState<{ answer: number; bg: string; fg: string } | null>(null)
 
   // deck selection (menu)
   const [selectedDecks, setSelectedDecks] = useState<number[]>([])
@@ -147,6 +148,7 @@ export default function App() {
     setWrong(0)
     setSessionErrors({})
     setSessionTimes([])
+    setLastDiscard(null)
     setCurrent(pickNextCard(activeCards(d, filter)))
     setScreen(raceModeEnabled ? 'race-ready' : 'playing')
   }
@@ -167,6 +169,12 @@ export default function App() {
     setSessionTimes(prev => [...prev, timeMs])
     if (wasCorrect) setCorrect(c => c + 1)
     else { setWrong(w => w + 1); setSessionErrors(newErrors) }
+
+    setLastDiscard({
+      answer: current.a * current.b,
+      bg: DECK_COLORS[current.a] ?? DECK_COLORS[1],
+      fg: DECK_TEXT[current.a] ?? DECK_TEXT[1],
+    })
 
     const updatedCard = updateCard(current, wasCorrect)
     const newDeck = deck.map(c => (c.a === current.a && c.b === current.b) ? updatedCard : c)
@@ -190,6 +198,7 @@ export default function App() {
     setWrong(0)
     setSessionErrors({})
     setSessionTimes([])
+    setLastDiscard(null)
     setCurrent(pickNextCard(activeCards(d, deckFilter)))
     if (raceModeEnabled) {
       setRaceTimeLeft(raceDuration)
@@ -393,30 +402,47 @@ export default function App() {
         <span className="score wrong">✗ {wrong}</span>
       </div>
 
-      {correct > 0 && (
+      <div className="card-table">
         <div className="discard-pile" aria-hidden="true">
-          {Array.from({ length: Math.min(correct, 6) }, (_, i) => (
-            <div
-              key={i}
-              className="discard-mini"
-              style={{ transform: `rotate(${(i % 6 - 2.5) * 4}deg)` }}
-            />
-          ))}
-          <span className="discard-count">{correct}</span>
+          {correct > 0 && lastDiscard && (
+            <>
+              <div className="discard-pile-cards">
+                {Array.from({ length: Math.min(correct, 3) }, (_, i) => {
+                  const depth = Math.min(correct, 3) - 1 - i
+                  return (
+                    <div
+                      key={i}
+                      className="discard-mini"
+                      style={{
+                        background: lastDiscard.bg,
+                        color: lastDiscard.fg,
+                        transform: `translate(${-depth * 3}px, ${-depth * 3}px)`,
+                        opacity: depth === 0 ? 1 : depth === 1 ? 0.7 : 0.5,
+                      }}
+                    >
+                      {depth === 0 && <span className="discard-answer">{lastDiscard.answer}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+              <span className="discard-count">{correct}</span>
+            </>
+          )}
         </div>
-      )}
-
-      <CardView
-        card={current}
-        onResult={handleResult}
-        onStop={handleQuit}
-        micEnabled={micEnabled}
-        correctDelay={correctDelay}
-        wrongDelay={wrongDelay}
-        revealDuration={revealDuration}
-        timeLimitEnabled={timeLimitEnabled && !raceModeEnabled}
-        timeLimit={timeLimit}
-      />
+        <div className="card-table-main">
+          <CardView
+            card={current}
+            onResult={handleResult}
+            onStop={handleQuit}
+            micEnabled={micEnabled}
+            correctDelay={correctDelay}
+            wrongDelay={wrongDelay}
+            revealDuration={revealDuration}
+            timeLimitEnabled={timeLimitEnabled && !raceModeEnabled}
+            timeLimit={timeLimit}
+          />
+        </div>
+      </div>
 
       {DEV && (
         <div className="dev-panel">

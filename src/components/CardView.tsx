@@ -41,6 +41,10 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
   const discardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const answerStartRef = useRef<number>(Date.now())
   const timeMsRef = useRef<number>(0)
+  // Stable ref so the correct-effect doesn't re-run when App re-renders
+  // (e.g. race-mode countdown ticks every second, creating a new onResult)
+  const onResultRef = useRef(onResult)
+  onResultRef.current = onResult
 
   const { listening } = useVoiceInput({
     active: micEnabled && feedback === 'idle',
@@ -95,11 +99,11 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
         bg: DECK_COLORS[card.a] ?? DECK_COLORS[1],
         fg: DECK_TEXT[card.a] ?? DECK_TEXT[1],
       })
-      onResult(!tainted, timeMsRef.current)
+      onResultRef.current(!tainted, timeMsRef.current)
       discardTimerRef.current = setTimeout(() => setOutgoingCard(null), DISCARD_MS)
     }, correctDelay)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [feedback, correctDelay, card, onResult, tainted])
+  }, [feedback, correctDelay, card, tainted])
 
   // Wrong: briefly show ring, then flip to reveal
   useEffect(() => {
@@ -159,12 +163,15 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
         <div className="deck-shadow s2" style={{ background: bg }} />
         <div className="deck-shadow s1" style={{ background: bg }} />
 
-        <div className={`card-flip ${feedback}`} key={`${card.a}x${card.b}`}>
-          <div className="card-face front" style={{ background: bg }}>
-            <p className="card-question" style={{ color: fg }}>{card.a} × {card.b}</p>
-          </div>
-          <div className="card-face back" style={{ background: bg }}>
-            <p className="card-answer" style={{ color: fg }}>{correctAnswer}</p>
+        {/* card-perspective isolates the 3D flip so card-scene has no stacking context */}
+        <div className="card-perspective">
+          <div className={`card-flip ${feedback}`} key={`${card.a}x${card.b}`}>
+            <div className="card-face front" style={{ background: bg }}>
+              <p className="card-question" style={{ color: fg }}>{card.a} × {card.b}</p>
+            </div>
+            <div className="card-face back" style={{ background: bg }}>
+              <p className="card-answer" style={{ color: fg }}>{correctAnswer}</p>
+            </div>
           </div>
         </div>
 

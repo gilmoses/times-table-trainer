@@ -296,43 +296,56 @@
   font-size: 20px;
 }
 
-/* discard pile — fixed to bottom-left, subtle card stack */
+/* card table: discard pile (flex:1) left, question card (flex:2) right
+   pile width = card-scene width / 2, so the flying card lands at exactly 50% scale */
+.card-table {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(560px, 96vw);
+}
+
+.card-table-main {
+  flex: 2;
+  min-width: 0;
+}
+
+/* discard pile */
 .discard-pile {
-  position: fixed;
-  bottom: 28px;
-  left: 28px;
-  width: 64px;
-  height: 56px;
-  z-index: 5;
-  pointer-events: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.discard-pile-cards {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 380 / 240;
 }
 
 .discard-mini {
   position: absolute;
-  width: 54px;
-  height: 34px;
-  top: 0;
-  left: 5px;
-  border-radius: 7px;
-  background: #e0e7ff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+  inset: 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+}
+
+.discard-answer {
+  font-family: 'Oswald', sans-serif;
+  font-size: clamp(14px, 4vw, 26px);
+  font-weight: 700;
 }
 
 .discard-count {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #6366f1;
-  background: #fff;
-  border-radius: 10px;
-  padding: 1px 6px;
-  min-width: 20px;
-  text-align: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.10);
-  line-height: 18px;
 }
 
 /* dev panel */
