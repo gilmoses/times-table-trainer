@@ -28,6 +28,44 @@
   perspective: 1200px;
   width: min(380px, 88vw);
   height: min(240px, 56vw);
+  position: relative; /* anchor for deck shadows and outgoing overlay */
+}
+
+/* deck-of-cards depth effect — two shadow cards behind the active card */
+.deck-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.deck-shadow.s2 {
+  transform: rotate(-4deg) translate(-7px, 6px);
+  opacity: 0.38;
+}
+
+.deck-shadow.s1 {
+  transform: rotate(-2deg) translate(-3px, 3px);
+  opacity: 0.62;
+}
+
+/* outgoing card — overlays the scene, animates to the discard pile */
+.card-outgoing {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 5px #22c55e, 0 6px 28px rgba(0,0,0,0.16);
+  z-index: 10;
+  pointer-events: none;
+  animation: discard-fly 0.45s cubic-bezier(0.4, 0, 0.8, 0.6) forwards;
+}
+
+@keyframes discard-fly {
+  0%   { transform: translate(0, 0)              scale(1)    rotate(0deg);   opacity: 1;    }
+  100% { transform: translate(-42vw, 50vh) scale(0.16)  rotate(-14deg);  opacity: 0.7;  }
 }
 
 .card-flip {

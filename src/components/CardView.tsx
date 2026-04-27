@@ -4,11 +4,17 @@ import { useVoiceInput, voiceSupported } from '../hooks/useVoiceInput'
 import { DECK_COLORS, DECK_TEXT } from '../lib/colors'
 import './CardView.css'
 
-type FeedbackState = 'idle' | 'correct' | 'wrong' | 'revealing' | 'flipping-back'
+type FeedbackState = 'idle' | 'correct' | 'wrong' | 'revealing'
 
 const STOP_COMMAND = 'סטופ'
 const REVEAL_COMMAND = 'עזרה'
-const FLIP_MS = 560 // must match .card-flip transition duration in CardView.css
+const DISCARD_MS = 450
+
+interface OutgoingCard {
+  answer: number
+  bg: string
+  fg: string
+}
 
 interface Props {
   card: Card
@@ -29,8 +35,10 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
   const [tainted, setTainted] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [idlePhase, setIdlePhase] = useState(0)
+  const [outgoingCard, setOutgoingCard] = useState<OutgoingCard | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const discardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const answerStartRef = useRef<number>(Date.now())
   const timeMsRef = useRef<number>(0)
 
@@ -78,19 +86,20 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [feedback, timeLimitEnabled, timeLimit, tainted])
 
-  // Correct: show answer on back for correctDelay, then flip back to question
+  // Correct: show answer on back for correctDelay, then fly the card to the discard pile
   useEffect(() => {
     if (feedback !== 'correct') return
-    timerRef.current = setTimeout(() => setFeedback('flipping-back'), correctDelay)
+    timerRef.current = setTimeout(() => {
+      setOutgoingCard({
+        answer: card.a * card.b,
+        bg: DECK_COLORS[card.a] ?? DECK_COLORS[1],
+        fg: DECK_TEXT[card.a] ?? DECK_TEXT[1],
+      })
+      onResult(!tainted, timeMsRef.current)
+      discardTimerRef.current = setTimeout(() => setOutgoingCard(null), DISCARD_MS)
+    }, correctDelay)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [feedback, correctDelay])
-
-  // Flipping-back: card shows the old question again; advance after the flip animation
-  useEffect(() => {
-    if (feedback !== 'flipping-back') return
-    timerRef.current = setTimeout(() => onResult(!tainted, timeMsRef.current), FLIP_MS)
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [feedback, onResult, tainted])
+  }, [feedback, correctDelay, card, onResult, tainted])
 
   // Wrong: briefly show ring, then flip to reveal
   useEffect(() => {
@@ -146,6 +155,10 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
       )}
 
       <div className="card-scene">
+        {/* deck depth — two shadow cards sitting behind the active card */}
+        <div className="deck-shadow s2" style={{ background: bg }} />
+        <div className="deck-shadow s1" style={{ background: bg }} />
+
         <div className={`card-flip ${feedback}`} key={`${card.a}x${card.b}`}>
           <div className="card-face front" style={{ background: bg }}>
             <p className="card-question" style={{ color: fg }}>{card.a} × {card.b}</p>
@@ -154,6 +167,16 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
             <p className="card-answer" style={{ color: fg }}>{correctAnswer}</p>
           </div>
         </div>
+
+        {/* outgoing card: animates to the discard pile while showing the answer */}
+        {outgoingCard && (
+          <div
+            className="card-outgoing"
+            style={{ background: outgoingCard.bg, color: outgoingCard.fg }}
+          >
+            <p className="card-answer">{outgoingCard.answer}</p>
+          </div>
+        )}
       </div>
 
       <div className="card-aux">
@@ -165,7 +188,7 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder="..."
+              placeholder=""
               className="answer-input"
             />
             {timeLimitEnabled && countdown !== null && (
@@ -185,7 +208,7 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
         {feedback === 'wrong' && (
           <p className="aux-text wrong">✗ &nbsp; {userAnswer}</p>
         )}
-        {(feedback === 'correct' || feedback === 'flipping-back') && (
+        {feedback === 'correct' && (
           <p className="aux-text correct">{tainted ? 'נכון - עם עזרה 👍' : 'נכון! 🎉'}</p>
         )}
       </div>

@@ -393,6 +393,19 @@ export default function App() {
         <span className="score wrong">✗ {wrong}</span>
       </div>
 
+      {correct > 0 && (
+        <div className="discard-pile" aria-hidden="true">
+          {Array.from({ length: Math.min(correct, 6) }, (_, i) => (
+            <div
+              key={i}
+              className="discard-mini"
+              style={{ transform: `rotate(${(i % 6 - 2.5) * 4}deg)` }}
+            />
+          ))}
+          <span className="discard-count">{correct}</span>
+        </div>
+      )}
+
       <CardView
         card={current}
         onResult={handleResult}
