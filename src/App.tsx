@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { CardView } from './components/CardView'
+import { CardView, DISCARD_MS } from './components/CardView'
+import { playFinish } from './lib/sounds'
 import { loadDeck, saveDeck, resetDeck, pickNextCard } from './lib/cards'
 import { updateCard } from './lib/sm2'
 import { DECK_COLORS, DECK_TEXT } from './lib/colors'
@@ -131,6 +132,7 @@ export default function App() {
   // end race when timer hits zero
   useEffect(() => {
     if (screen !== 'playing' || !raceModeEnabled || raceTimeLeft > 0) return
+    playFinish()
     saveBestScore(deckFilter, raceDuration, correct)
     setScreen('race-results')
   }, [raceTimeLeft, correct, screen, raceModeEnabled, deckFilter, raceDuration])
@@ -170,11 +172,12 @@ export default function App() {
     if (wasCorrect) setCorrect(c => c + 1)
     else { setWrong(w => w + 1); setSessionErrors(newErrors) }
 
-    setLastDiscard({
+    const discarded = {
       answer: current.a * current.b,
       bg: DECK_COLORS[current.a] ?? DECK_COLORS[1],
       fg: DECK_TEXT[current.a] ?? DECK_TEXT[1],
-    })
+    }
+    setTimeout(() => setLastDiscard(discarded), DISCARD_MS)
 
     const updatedCard = updateCard(current, wasCorrect)
     const newDeck = deck.map(c => (c.a === current.a && c.b === current.b) ? updatedCard : c)
@@ -184,6 +187,7 @@ export default function App() {
   }
 
   function handleQuit() {
+    playFinish()
     if (raceModeEnabled) {
       saveBestScore(deckFilter, raceDuration, correct)
       setScreen('race-results')

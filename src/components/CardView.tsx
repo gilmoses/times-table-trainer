@@ -2,13 +2,14 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import type { Card } from '../types'
 import { useVoiceInput, voiceSupported } from '../hooks/useVoiceInput'
 import { DECK_COLORS, DECK_TEXT } from '../lib/colors'
+import { playWrong, playCorrect, playCorrectWithHelp } from '../lib/sounds'
 import './CardView.css'
 
 type FeedbackState = 'idle' | 'correct' | 'wrong' | 'revealing'
 
 const STOP_COMMAND = 'סטופ'
 const REVEAL_COMMAND = 'עזרה'
-const DISCARD_MS = 450
+export const DISCARD_MS = 450
 
 interface OutgoingCard {
   answer: number
@@ -104,6 +105,15 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
     }, correctDelay)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [feedback, correctDelay, card, tainted])
+
+  // Sound feedback
+  useEffect(() => {
+    if (feedback === 'wrong') playWrong()
+    else if (feedback === 'correct') {
+      if (tainted) playCorrectWithHelp()
+      else playCorrect()
+    }
+  }, [feedback, tainted])
 
   // Wrong: briefly show ring, then flip to reveal
   useEffect(() => {

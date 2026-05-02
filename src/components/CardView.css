@@ -71,8 +71,8 @@
 }
 
 @keyframes discard-fly {
-  0%   { transform: translate(0, 0)                   scale(1);   opacity: 1; }
-  100% { transform: translate(calc(-75% - 12px), 0)   scale(0.5); opacity: 1; }
+  0%   { transform: translate(0, 0)                        scale(1);   opacity: 1; }
+  100% { transform: translate(calc(-75% - 12px), 40px)     scale(0.5); opacity: 1; }
 }
 
 .card-flip {
@@ -108,8 +108,16 @@
 }
 
 /* feedback rings — wrong on front (before flip), correct on back (after flip) */
-.card-flip.wrong   .card-face.front { box-shadow: 0 0 0 5px #ef4444, 0 6px 28px rgba(0,0,0,0.16); }
-.card-flip.correct .card-face.back  { box-shadow: 0 0 0 5px #22c55e, 0 6px 28px rgba(0,0,0,0.16); }
+.card-flip.wrong .card-face.front {
+  box-shadow: 0 0 0 5px #ef4444, 0 6px 28px rgba(0,0,0,0.16);
+  animation: blink-wrong 0.25s ease-in-out 3;
+}
+.card-flip.correct .card-face.back { box-shadow: 0 0 0 5px #22c55e, 0 6px 28px rgba(0,0,0,0.16); }
+
+@keyframes blink-wrong {
+  0%, 100% { box-shadow: 0 0 0 5px #ef4444, 0 6px 28px rgba(0,0,0,0.16); }
+  50%       { box-shadow: 0 0 0 2px rgba(239,68,68,0.25), 0 6px 28px rgba(0,0,0,0.16); }
+}
 
 .card-question {
   font-family: 'Oswald', sans-serif;
