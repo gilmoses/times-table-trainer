@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CardView, DISCARD_MS } from './components/CardView'
 import { playFinish } from './lib/sounds'
 import { loadDeck, saveDeck, resetDeck, pickNextCard } from './lib/cards'
@@ -8,12 +8,15 @@ import { voiceSupported } from './hooks/useVoiceInput'
 import type { Card } from './types'
 import './App.css'
 
-type Screen = 'menu' | 'race-ready' | 'playing' | 'quit' | 'race-results'
+type Screen = 'menu' | 'playing' | 'two-player'
+type SummaryOverlay = 'none' | 'solo-quit' | 'race' | 'two-player'
 
 const DEV = import.meta.env.DEV
 const DEV_SETTINGS_KEY = 'times-table-dev'
 const SETTINGS_KEY = 'times-table-settings'
 const BEST_SCORES_KEY = 'times-table-best'
+const PLAYER_NAMES_KEY = 'times-table-player-names'
+const CARDS_PER_PLAYER_KEY = 'times-table-cards-per-player'
 const TABLE_DECKS = [2, 3, 4, 5, 6, 7, 8, 9]
 const RACE_DURATIONS = [30, 60, 120]
 
@@ -80,18 +83,69 @@ function saveBestScore(deckFilter: number[] | null, duration: number, score: num
   } catch { /* ignore */ }
 }
 
+// ── two-player persistence ────────────────────────────────────────────────────
+
+function loadPlayerNames(): [string, string] {
+  try {
+    const raw = localStorage.getItem(PLAYER_NAMES_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length === 2) return parsed as [string, string]
+    }
+  } catch { /* ignore */ }
+  return ['שחקן 1', 'שחקן 2']
+}
+
+function loadCardsPerPlayer(): number {
+  try {
+    const n = parseInt(localStorage.getItem(CARDS_PER_PLAYER_KEY) ?? '', 10)
+    if (!isNaN(n) && n > 0) return n
+  } catch { /* ignore */ }
+  return 10
+}
+
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu')
+  const [summaryOverlay, setSummaryOverlay] = useState<SummaryOverlay>('none')
+  const [raceKey, setRaceKey] = useState(0)
   const [deck, setDeck] = useState<Card[]>(() => loadDeck())
   const [deckFilter, setDeckFilter] = useState<number[] | null>(null)
   const [current, setCurrent] = useState<Card>(() => pickNextCard(loadDeck()))
   const [correct, setCorrect] = useState(0)
   const [wrong, setWrong] = useState(0)
   const [sessionErrors, setSessionErrors] = useState<Record<string, number>>({})
-  const [sessionTimes, setSessionTimes] = useState<number[]>([])
   const [lastDiscard, setLastDiscard] = useState<{ answer: number; bg: string; fg: string } | null>(null)
+  const raceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const summaryOverlayRef = useRef<SummaryOverlay>('none')
+  const raceActiveRef = useRef(false)
+
+  // game mode
+  const [gameMode, setGameMode] = useState<'solo' | 'two-player'>('solo')
+
+  // two-player setup (persisted)
+  const [playerNames, setPlayerNames] = useState<[string, string]>(loadPlayerNames)
+  const [nameEdits, setNameEdits] = useState<[string, string]>(['', ''])
+  const [cardsPerPlayer, setCardsPerPlayer] = useState(loadCardsPerPlayer)
+
+  // two-player session
+  const [twoPlayerQueue, setTwoPlayerQueue] = useState<Card[]>([])
+  const [twoPlayerIdx, setTwoPlayerIdx] = useState(0)
+  const [currentPlayer, setCurrentPlayer] = useState<0 | 1>(0)
+  const [twoScores, setTwoScores] = useState<[number, number]>([0, 0])
+  const [cardsLeft, setCardsLeft] = useState(0)
+  const [twoPileCounts, setTwoPileCounts] = useState<[number, number]>([0, 0])
+  const [twoLastDiscard, setTwoLastDiscard] = useState<[typeof lastDiscard, typeof lastDiscard]>([null, null])
 
   // deck selection (menu)
   const [selectedDecks, setSelectedDecks] = useState<number[]>([])
@@ -109,6 +163,7 @@ export default function App() {
   const [timeLimitEnabled, setTimeLimitEnabled] = useState(() => loadDevSettings().timeLimitEnabled)
   const [timeLimit, setTimeLimit] = useState(() => loadDevSettings().timeLimit)
   const [devOpen, setDevOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // persist user settings
   useEffect(() => {
@@ -121,21 +176,42 @@ export default function App() {
     localStorage.setItem(DEV_SETTINGS_KEY, JSON.stringify({ correctDelay, wrongDelay, revealDuration, timeLimitEnabled, timeLimit }))
   }, [correctDelay, wrongDelay, revealDuration, timeLimitEnabled, timeLimit])
 
-  // race timer countdown
+  // persist two-player setup
   useEffect(() => {
+    localStorage.setItem(PLAYER_NAMES_KEY, JSON.stringify(playerNames))
+  }, [playerNames])
+
+  useEffect(() => {
+    localStorage.setItem(CARDS_PER_PLAYER_KEY, cardsPerPlayer.toString())
+  }, [cardsPerPlayer])
+
+  summaryOverlayRef.current = summaryOverlay
+
+  // race timer countdown — raceKey restarts it without a screen change
+  useEffect(() => {
+    if (raceTimerRef.current) { clearInterval(raceTimerRef.current); raceTimerRef.current = null }
     if (screen !== 'playing' || !raceModeEnabled) return
+    raceActiveRef.current = true
     setRaceTimeLeft(raceDuration)
-    const iv = setInterval(() => setRaceTimeLeft(t => Math.max(0, t - 1)), 1000)
-    return () => clearInterval(iv)
-  }, [screen, raceModeEnabled, raceDuration])
+    raceTimerRef.current = setInterval(() => {
+      if (!raceActiveRef.current) return
+      setRaceTimeLeft(t => Math.max(0, t - 1))
+    }, 1000)
+    return () => {
+      raceActiveRef.current = false
+      if (raceTimerRef.current) { clearInterval(raceTimerRef.current); raceTimerRef.current = null }
+    }
+  }, [screen, raceModeEnabled, raceDuration, raceKey])
 
   // end race when timer hits zero
   useEffect(() => {
     if (screen !== 'playing' || !raceModeEnabled || raceTimeLeft > 0) return
+    if (summaryOverlayRef.current !== 'none') return
+    if (raceTimerRef.current) { clearInterval(raceTimerRef.current); raceTimerRef.current = null }
     playFinish()
     saveBestScore(deckFilter, raceDuration, correct)
-    setScreen('race-results')
-  }, [raceTimeLeft, correct, screen, raceModeEnabled, deckFilter, raceDuration])
+    setSummaryOverlay('race')
+  }, [raceTimeLeft, screen, raceModeEnabled, deckFilter, raceDuration, correct])
 
   // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -149,26 +225,19 @@ export default function App() {
     setCorrect(0)
     setWrong(0)
     setSessionErrors({})
-    setSessionTimes([])
     setLastDiscard(null)
     setCurrent(pickNextCard(activeCards(d, filter)))
-    setScreen(raceModeEnabled ? 'race-ready' : 'playing')
-  }
-
-  function handleRaceStart() {
-    // set raceTimeLeft in the same batch as screen change so the end-race
-    // effect never sees raceTimeLeft=0 when screen first becomes 'playing'
-    setRaceTimeLeft(raceDuration)
+    if (raceModeEnabled) setRaceTimeLeft(raceDuration)
     setScreen('playing')
   }
 
-  function handleResult(wasCorrect: boolean, timeMs: number) {
+  function handleResult(wasCorrect: boolean, _timeMs: number) {
+    if (summaryOverlay !== 'none') return
     const key = `${current.a}x${current.b}`
     const newErrors = wasCorrect
       ? sessionErrors
       : { ...sessionErrors, [key]: (sessionErrors[key] ?? 0) + 1 }
 
-    setSessionTimes(prev => [...prev, timeMs])
     if (wasCorrect) setCorrect(c => c + 1)
     else { setWrong(w => w + 1); setSessionErrors(newErrors) }
 
@@ -186,13 +255,83 @@ export default function App() {
     setCurrent(pickNextCard(activeCards(newDeck, deckFilter), updatedCard, newErrors))
   }
 
+  function buildTwoPlayerQueue(filter: number[] | null): Card[] {
+    const available = activeCards(loadDeck(), filter)
+    const total = Math.min(cardsPerPlayer * 2, available.length)
+    const evenTotal = total % 2 === 0 ? total : total - 1
+    return shuffled(available).slice(0, evenTotal)
+  }
+
+  function handleStartTwoPlayer(filter: number[] | null) {
+    const n0 = nameEdits[0].trim() || playerNames[0]
+    const n1 = nameEdits[1].trim() || playerNames[1]
+    setPlayerNames([n0, n1])
+    const queue = buildTwoPlayerQueue(filter)
+    setDeckFilter(filter)
+    setTwoPlayerQueue(queue)
+    setTwoPlayerIdx(0)
+    setCurrentPlayer(0)
+    setTwoScores([0, 0])
+    setCardsLeft(queue.length / 2)
+    setTwoPileCounts([0, 0])
+    setTwoLastDiscard([null, null])
+    setScreen('two-player')
+  }
+
+  function handleTwoPlayerResult(wasCorrect: boolean, _timeMs: number) {
+    if (wasCorrect) {
+      setTwoScores(s => {
+        const ns: [number, number] = [s[0], s[1]]
+        ns[currentPlayer]++
+        return ns
+      })
+    }
+
+    const card = twoPlayerQueue[twoPlayerIdx]
+    const discarded = {
+      answer: card.a * card.b,
+      bg: DECK_COLORS[card.a] ?? DECK_COLORS[1],
+      fg: DECK_TEXT[card.a] ?? DECK_TEXT[1],
+    }
+    const p = currentPlayer
+    setTwoPileCounts(c => { const nc: [number, number] = [c[0], c[1]]; nc[p]++; return nc })
+    setTimeout(() => setTwoLastDiscard(d => { const nd: [typeof d[0], typeof d[1]] = [d[0], d[1]]; nd[p] = discarded; return nd }), DISCARD_MS)
+
+    const nextIdx = twoPlayerIdx + 1
+    const nextPlayer: 0 | 1 = currentPlayer === 0 ? 1 : 0
+
+    if (currentPlayer === 1) setCardsLeft(l => l - 1)
+
+    if (nextIdx >= twoPlayerQueue.length) {
+      playFinish()
+      setSummaryOverlay('two-player')
+    } else {
+      setTwoPlayerIdx(nextIdx)
+      setCurrentPlayer(nextPlayer)
+    }
+  }
+
+  function handleTwoPlayerRematch() {
+    const queue = buildTwoPlayerQueue(deckFilter)
+    setTwoPlayerQueue(queue)
+    setTwoPlayerIdx(0)
+    setCurrentPlayer(0)
+    setTwoScores([0, 0])
+    setCardsLeft(queue.length / 2)
+    setTwoPileCounts([0, 0])
+    setTwoLastDiscard([null, null])
+    setSummaryOverlay('none')
+  }
+
   function handleQuit() {
-    playFinish()
+    raceActiveRef.current = false
+    if (raceTimerRef.current) { clearInterval(raceTimerRef.current); raceTimerRef.current = null }
+    setRaceTimeLeft(raceDuration)
     if (raceModeEnabled) {
       saveBestScore(deckFilter, raceDuration, correct)
-      setScreen('race-results')
+      setSummaryOverlay('race')
     } else {
-      setScreen('quit')
+      setSummaryOverlay('solo-quit')
     }
   }
 
@@ -201,18 +340,17 @@ export default function App() {
     setCorrect(0)
     setWrong(0)
     setSessionErrors({})
-    setSessionTimes([])
     setLastDiscard(null)
     setCurrent(pickNextCard(activeCards(d, deckFilter)))
+    setSummaryOverlay('none')
     if (raceModeEnabled) {
       setRaceTimeLeft(raceDuration)
-      setScreen('playing')
-    } else {
-      setScreen('playing')
+      setRaceKey(k => k + 1)
     }
   }
 
   function handleBackToMenu() {
+    setSummaryOverlay('none')
     setScreen('menu')
   }
 
@@ -222,7 +360,6 @@ export default function App() {
     setCorrect(0)
     setWrong(0)
     setSessionErrors({})
-    setSessionTimes([])
     setCurrent(pickNextCard(activeCards(fresh, deckFilter)))
     setScreen('playing')
   }
@@ -236,10 +373,23 @@ export default function App() {
   if (screen === 'menu') {
     const allSelected = selectedDecks.length === TABLE_DECKS.length
     const filter: number[] | null = allSelected ? null : selectedDecks
+    const isTwoPlayer = gameMode === 'two-player'
     return (
       <div className="app">
         <div className="menu-screen">
           <h1 className="title">לוח הכפל</h1>
+
+          <div className="mode-toggle-row">
+            <button
+              className={`btn-mode${!isTwoPlayer ? ' active' : ''}`}
+              onClick={() => setGameMode('solo')}
+            >יחיד</button>
+            <button
+              className={`btn-mode${isTwoPlayer ? ' active' : ''}`}
+              onClick={() => setGameMode('two-player')}
+            >שני שחקנים</button>
+          </div>
+
           <p className="menu-subtitle">בחרו לוחות</p>
           <div className="deck-grid">
             {TABLE_DECKS.map(n => {
@@ -256,159 +406,247 @@ export default function App() {
                 </button>
               )
             })}
-          </div>
-
-          <div className="deck-actions">
-            <button className="btn-select-all" onClick={() =>
-              setSelectedDecks(allSelected ? [] : [...TABLE_DECKS])
-            }>
+            <button
+              className="btn-select-all"
+              style={{ gridColumn: '1 / -1' }}
+              onClick={() => setSelectedDecks(allSelected ? [] : [...TABLE_DECKS])}
+            >
               {allSelected ? 'בטל הכל' : 'בחר הכל'}
             </button>
-            <button
-              className="btn-primary"
-              disabled={selectedDecks.length === 0}
-              onClick={() => handleStartDeck(filter)}
-            >
-              התחל
-            </button>
           </div>
 
-          <div className="menu-settings">
-            {voiceSupported && (
-              <div className="setting-row">
-                <span className="setting-label">🎤 מיקרופון</span>
-                <button
-                  className={`toggle-pill${micEnabled ? ' on' : ''}`}
-                  onClick={() => setMicEnabled(m => !m)}
+          <button className="btn-settings-toggle" onClick={() => setSettingsOpen(o => !o)}>
+            {settingsOpen ? '▲ הסתר הגדרות' : '▼ הגדרות'}
+          </button>
+          <div className={`settings-panel${settingsOpen ? ' open' : ''}`}>
+          <div className={`menu-mode-extra${isTwoPlayer ? ' two-p' : ''}`}>
+            <div className="two-player-menu-setup">
+              <div className="player-name-row">
+                <input
+                  className="player-name-input"
+                  value={nameEdits[0]}
+                  placeholder={playerNames[0]}
+                  onChange={e => setNameEdits([e.target.value, nameEdits[1]])}
+                />
+                <input
+                  className="player-name-input"
+                  value={nameEdits[1]}
+                  placeholder={playerNames[1]}
+                  onChange={e => setNameEdits([nameEdits[0], e.target.value])}
                 />
               </div>
-            )}
-            <div className="setting-row">
-              <span className="setting-label">⏱ מרוץ</span>
-              <button
-                className={`toggle-pill${raceModeEnabled ? ' on' : ''}`}
-                onClick={() => setRaceModeEnabled(m => !m)}
-              />
-            </div>
-            {raceModeEnabled && (
-              <div className="race-duration-row">
-                {RACE_DURATIONS.map(s => (
-                  <button
-                    key={s}
-                    className={`btn-duration${raceDuration === s ? ' active' : ''}`}
-                    onClick={() => setRaceDuration(s)}
-                  >
-                    {s >= 60 ? `${s / 60}′` : `${s}″`}
-                  </button>
-                ))}
+              <div className="setting-row-compact">
+                <span className="setting-label">קלפים לכל שחקן</span>
+                <input
+                  type="number"
+                  className="cards-per-player-input"
+                  value={cardsPerPlayer}
+                  min={1}
+                  max={100}
+                  onChange={e => setCardsPerPlayer(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                />
               </div>
+              {voiceSupported && (
+                <div className="setting-row">
+                  <span className="setting-label">🎤 מיקרופון</span>
+                  <button
+                    className={`toggle-pill${micEnabled ? ' on' : ''}`}
+                    onClick={() => setMicEnabled(m => !m)}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="menu-settings">
+              {voiceSupported && (
+                <div className="setting-row">
+                  <span className="setting-label">🎤 מיקרופון</span>
+                  <button
+                    className={`toggle-pill${micEnabled ? ' on' : ''}`}
+                    onClick={() => setMicEnabled(m => !m)}
+                  />
+                </div>
+              )}
+              <div className="setting-row">
+                <span className="setting-label">⏱ מרוץ</span>
+                <button
+                  className={`toggle-pill${raceModeEnabled ? ' on' : ''}`}
+                  onClick={() => setRaceModeEnabled(m => !m)}
+                />
+              </div>
+              {raceModeEnabled && (
+                <div className="race-duration-row">
+                  {RACE_DURATIONS.map(s => (
+                    <button
+                      key={s}
+                      className={`btn-duration${raceDuration === s ? ' active' : ''}`}
+                      onClick={() => setRaceDuration(s)}
+                    >
+                      {s >= 60 ? `${s / 60}′` : `${s}″`}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
+
+          <button
+            className="btn-start"
+            disabled={selectedDecks.length === 0 || (isTwoPlayer && cardsPerPlayer < 1)}
+            onClick={() => isTwoPlayer ? handleStartTwoPlayer(filter) : handleStartDeck(filter)}
+          >
+            התחילו
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+
+  if (screen === 'two-player') {
+    const card = twoPlayerQueue[twoPlayerIdx] ?? twoPlayerQueue[twoPlayerQueue.length - 1]
+    if (!card) return null
+    const tpWinner = twoScores[0] > twoScores[1] ? 0 : twoScores[1] > twoScores[0] ? 1 : -1
+    return (
+      <div className="app">
+        <div className="two-player-header">
+          <div className={`player-badge${currentPlayer === 0 && summaryOverlay === 'none' ? ' active' : ''}`}>
+            <span className="player-badge-name">{playerNames[0]}</span>
+            <span className="player-badge-score">{twoScores[0]}</span>
+          </div>
+          <div className="cards-left-badge">
+            <span className="cards-left-number">{cardsLeft}</span>
+            <span className="cards-left-label">קלפים</span>
+          </div>
+          <div className={`player-badge${currentPlayer === 1 && summaryOverlay === 'none' ? ' active' : ''}`}>
+            <span className="player-badge-name">{playerNames[1]}</span>
+            <span className="player-badge-score">{twoScores[1]}</span>
+          </div>
+        </div>
+
+        <div className="playing-above" />
+
+        <div className="card-table card-table-wide">
+          <div className="discard-pile" aria-hidden="true">
+            {twoPileCounts[0] > 0 && twoLastDiscard[0] && (
+              <>
+                <div className="discard-pile-cards">
+                  {Array.from({ length: Math.min(twoPileCounts[0], 3) }, (_, i) => {
+                    const depth = Math.min(twoPileCounts[0], 3) - 1 - i
+                    return (
+                      <div key={i} className="discard-mini" style={{
+                        background: twoLastDiscard[0]!.bg, color: twoLastDiscard[0]!.fg,
+                        transform: `translate(${-depth * 3}px, ${-depth * 3}px)`,
+                        opacity: depth === 0 ? 1 : depth === 1 ? 0.7 : 0.5,
+                      }}>
+                        {depth === 0 && <span className="discard-answer">{twoLastDiscard[0]!.answer}</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+                <span className="discard-count">{twoPileCounts[0]}</span>
+              </>
+            )}
+          </div>
+
+          <div className="card-table-main">
+            {summaryOverlay === 'two-player' ? (
+              <div className="winner-card-area">
+                <div className="winner-card">
+                  <p className="winner-text">
+                    {tpWinner === -1 ? 'תיקו' : `!${playerNames[tpWinner]} ניצח`}
+                  </p>
+                </div>
+                <div className="winner-card-spacer" />
+              </div>
+            ) : (
+              <CardView
+                card={card}
+                onResult={handleTwoPlayerResult}
+                onStop={() => setSummaryOverlay('two-player')}
+                micEnabled={micEnabled}
+                correctDelay={correctDelay}
+                wrongDelay={wrongDelay}
+                revealDuration={250}
+                timeLimitEnabled={false}
+                timeLimit={0}
+                advanceOnWrong
+                discardDirection={currentPlayer === 0 ? 'left' : 'right'}
+              />
+            )}
+          </div>
+
+          <div className="discard-pile" aria-hidden="true">
+            {twoPileCounts[1] > 0 && twoLastDiscard[1] && (
+              <>
+                <div className="discard-pile-cards">
+                  {Array.from({ length: Math.min(twoPileCounts[1], 3) }, (_, i) => {
+                    const depth = Math.min(twoPileCounts[1], 3) - 1 - i
+                    return (
+                      <div key={i} className="discard-mini" style={{
+                        background: twoLastDiscard[1]!.bg, color: twoLastDiscard[1]!.fg,
+                        transform: `translate(${-depth * 3}px, ${-depth * 3}px)`,
+                        opacity: depth === 0 ? 1 : depth === 1 ? 0.7 : 0.5,
+                      }}>
+                        {depth === 0 && <span className="discard-answer">{twoLastDiscard[1]!.answer}</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+                <span className="discard-count">{twoPileCounts[1]}</span>
+              </>
             )}
           </div>
         </div>
-      </div>
-    )
-  }
 
-  if (screen === 'race-ready') {
-    const deckLabel = deckFilter === null
-      ? 'כל הלוח'
-      : deckFilter.length === 1
-        ? `${deckFilter[0]}×`
-        : [...deckFilter].sort((a, b) => a - b).map(n => `${n}×`).join('  ')
-    const durationLabel = raceDuration >= 60 ? `${raceDuration / 60}′` : `${raceDuration}″`
-    return (
-      <div className="app">
-        <div className="quit-screen">
-          <h1>מוכנים?</h1>
-          <p className="quit-stat">{deckLabel} · {durationLabel}</p>
-          <button className="btn-primary" onClick={handleRaceStart}>התחל!</button>
-          <button className="btn-secondary" onClick={handleBackToMenu}>חזרה</button>
+        <div className="playing-below">
+          {summaryOverlay === 'none' ? (
+            <button className="btn-quit" onClick={() => setSummaryOverlay('two-player')}>עצור</button>
+          ) : (
+            <div className="session-actions">
+              <button className="btn-primary" onClick={handleTwoPlayerRematch}>שחקו שוב</button>
+              <button className="btn-primary" onClick={handleBackToMenu}>חזרה לתפריט</button>
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  if (screen === 'quit') {
-    const total = correct + wrong
-    const pct = total > 0 ? Math.round((correct / total) * 100) : 0
-    const avgSec = sessionTimes.length > 0
-      ? parseFloat((sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length / 1000).toFixed(1))
-      : null
-    return (
-      <div className="app">
-        <div className="quit-screen">
-          <h1>סיום</h1>
-          <p className="quit-score">✓ {correct} &nbsp; ✗ {wrong} &nbsp; ({pct}%)</p>
-          {avgSec !== null && <p className="quit-stat">זמן ממוצע: {avgSec} שניות</p>}
-          <button className="btn-primary" onClick={handleRestart}>שחקו שוב</button>
-          <button className="btn-secondary" onClick={handleBackToMenu}>בחרו לוח</button>
-        </div>
-      </div>
-    )
-  }
-
-  if (screen === 'race-results') {
-    const prev = loadBestScore(deckFilter, raceDuration)
-    const isNewBest = correct > 0 && correct >= prev
-    return (
-      <div className="app">
-        <div className="quit-screen">
-          <h1>סיום המרוץ!</h1>
-          <p className="quit-score">✓ {correct} &nbsp; ✗ {wrong}</p>
-          {isNewBest
-            ? <p className="quit-stat best">🏆 שיא חדש!</p>
-            : prev > 0 && <p className="quit-stat">שיא: {prev}</p>
-          }
-          <button className="btn-primary" onClick={handleRestart}>שחקו שוב</button>
-          <button className="btn-secondary" onClick={handleBackToMenu}>בחרו לוח</button>
-        </div>
-      </div>
-    )
-  }
-
-  // playing screen
+  // playing screen — also computes summary overlay values
   const raceBarPct = raceModeEnabled ? (raceTimeLeft / raceDuration) * 100 : 0
   const raceUrgent = raceModeEnabled && raceTimeLeft <= 5
-  const deckTitle = deckFilter !== null && deckFilter.length === 1
-    ? `${deckFilter[0]}×`
-    : 'לוח הכפל'
+  const racePrev = loadBestScore(deckFilter, raceDuration)
+  const raceIsNewBest = correct > 0 && correct >= racePrev
 
   return (
     <div className="app">
-      <div className="topbar">
-        <h1 className="title">{deckTitle}</h1>
-        {voiceSupported && (
-          <button
-            className={`btn-icon${micEnabled ? '' : ' muted'}`}
-            onClick={() => setMicEnabled(m => !m)}
-            title={micEnabled ? 'כבה מיקרופון' : 'הפעל מיקרופון'}
-          >
-            {micEnabled ? '🎤' : '🔇'}
-          </button>
-        )}
-        <button className="btn-quit" onClick={handleQuit}>עצור</button>
-      </div>
-
-      {raceModeEnabled && (
-        <div className="race-timer">
-          <div className="race-bar-track">
-            <div
-              className={`race-bar-fill${raceUrgent ? ' urgent' : ''}`}
-              style={{ width: `${raceBarPct}%` }}
-            />
+      <div className="playing-above">
+        {raceModeEnabled && summaryOverlay === 'none' && (
+          <div className="race-timer">
+            <div className="race-bar-track">
+              <div
+                className={`race-bar-fill${raceUrgent ? ' urgent' : ''}`}
+                style={{ width: `${raceBarPct}%` }}
+              />
+            </div>
+            <span className={`race-time${raceUrgent ? ' urgent' : ''}`}>{raceTimeLeft}</span>
           </div>
-          <span className={`race-time${raceUrgent ? ' urgent' : ''}`}>{raceTimeLeft}</span>
-        </div>
-      )}
-
-      <div className="scoreboard">
-        <span className="score correct">✓ {correct}</span>
-        <span className="score wrong">✗ {wrong}</span>
+        )}
+        {summaryOverlay === 'race' && (
+          <div className="session-result">
+            <h2>סיום המרוץ</h2>
+            {raceIsNewBest
+              ? <p className="quit-stat best">!🏆 שיא חדש</p>
+              : racePrev > 0 && <p className="quit-stat">שיא: {racePrev}</p>
+            }
+          </div>
+        )}
       </div>
 
-      <div className="card-table">
+      <div className={`card-table${summaryOverlay !== 'none' ? ' dimmed' : ''}`}>
         <div className="discard-pile" aria-hidden="true">
-          {correct > 0 && lastDiscard && (
+          {lastDiscard && (
             <>
               <div className="discard-pile-cards">
                 {Array.from({ length: Math.min(correct, 3) }, (_, i) => {
@@ -429,7 +667,10 @@ export default function App() {
                   )
                 })}
               </div>
-              <span className="discard-count">{correct}</span>
+              <div className="discard-stats">
+                <span className="discard-stat-correct">👍 {correct}</span>
+                <span className="discard-stat-wrong">👎 {wrong}</span>
+              </div>
             </>
           )}
         </div>
@@ -442,10 +683,12 @@ export default function App() {
             correctDelay={correctDelay}
             wrongDelay={wrongDelay}
             revealDuration={revealDuration}
-            timeLimitEnabled={timeLimitEnabled && !raceModeEnabled}
+            timeLimitEnabled={timeLimitEnabled && !raceModeEnabled && summaryOverlay === 'none'}
             timeLimit={timeLimit}
+            showStop={summaryOverlay === 'none'}
           />
         </div>
+        <div className="card-table-spacer" />
       </div>
 
       {DEV && (
@@ -496,6 +739,15 @@ export default function App() {
           )}
         </div>
       )}
+
+      <div className="playing-below">
+        {summaryOverlay !== 'none' && summaryOverlay !== 'two-player' && (
+          <div className="session-actions">
+            <button className="btn-primary" onClick={handleRestart}>שחקו שוב</button>
+            <button className="btn-primary" onClick={handleBackToMenu}>בחרו לוח</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

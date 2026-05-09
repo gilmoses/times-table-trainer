@@ -90,7 +90,17 @@ function buildLookup(): Record<string, number> {
 
 const lookup = buildLookup()
 
+// Reverse: number → all Hebrew phrases that map to it
+const phraseLookup: Record<number, string[]> = {}
+for (const [phrase, n] of Object.entries(lookup)) {
+  ;(phraseLookup[n] ??= []).push(phrase)
+}
+
 export function parseHebrewNumber(text: string): number | null {
   const clean = text.trim().replace(/[.,!?]/g, '')
   return lookup[clean] ?? null
+}
+
+export function phrasesFor(n: number): string[] {
+  return phraseLookup[n] ?? []
 }

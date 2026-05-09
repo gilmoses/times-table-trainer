@@ -67,12 +67,19 @@
   box-shadow: 0 0 0 5px #22c55e, 0 6px 28px rgba(0,0,0,0.16);
   z-index: 10;
   pointer-events: none;
-  animation: discard-fly 0.45s cubic-bezier(0.4, 0, 0.8, 0.6) forwards;
 }
 
-@keyframes discard-fly {
-  0%   { transform: translate(0, 0)                        scale(1);   opacity: 1; }
-  100% { transform: translate(calc(-75% - 12px), 40px)     scale(0.5); opacity: 1; }
+.card-outgoing.fly-left  { animation: discard-fly-left  0.45s cubic-bezier(0.4, 0, 0.8, 0.6) forwards; }
+.card-outgoing.fly-right { animation: discard-fly-right 0.45s cubic-bezier(0.4, 0, 0.8, 0.6) forwards; }
+
+@keyframes discard-fly-left {
+  0%   { transform: translate(0, 0)                    scale(1);   opacity: 1; }
+  100% { transform: translate(calc(-75% - 12px), 40px) scale(0.5); opacity: 1; }
+}
+
+@keyframes discard-fly-right {
+  0%   { transform: translate(0, 0)                   scale(1);   opacity: 1; }
+  100% { transform: translate(calc(75% + 12px), 40px) scale(0.5); opacity: 1; }
 }
 
 .card-flip {
@@ -146,6 +153,26 @@
   overflow: visible;
 }
 
+.answer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-stop-card {
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #d1d5db;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 22px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+
+  &:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+}
+
 .answer-input {
   font-family: 'Oswald', sans-serif;
   font-size: 34px;
@@ -208,7 +235,7 @@
 }
 
 .countdown {
-  font-size: 20px;
+  font-size: 40px;
   font-weight: 600;
   color: #6b7280;
 

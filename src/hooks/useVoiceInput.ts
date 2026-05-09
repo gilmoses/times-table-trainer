@@ -1,24 +1,27 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { parseHebrewNumber } from '../lib/hebrewNumbers'
+import { parseHebrewNumber, phrasesFor } from '../lib/hebrewNumbers'
 
 interface Options {
   active: boolean
   onNumber: (n: number) => void
   onRaw?: (text: string) => void
+  card?: { a: number; b: number }
 }
 
 const SR: any = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
 export const voiceSupported = !!SR
 
-export function useVoiceInput({ active, onNumber, onRaw }: Options) {
+export function useVoiceInput({ active, onNumber, onRaw, card }: Options) {
   const [listening, setListening] = useState(false)
   const activeRef    = useRef(active)
   const onNumberRef  = useRef(onNumber)
   const onRawRef     = useRef(onRaw)
+  const cardRef      = useRef(card)
 
   useLayoutEffect(() => { activeRef.current   = active   }, [active])
   useLayoutEffect(() => { onNumberRef.current = onNumber }, [onNumber])
   useLayoutEffect(() => { onRawRef.current    = onRaw    }, [onRaw])
+  useLayoutEffect(() => { cardRef.current     = card     }, [card])
 
   useEffect(() => {
     if (!SR) return
@@ -54,9 +57,28 @@ export function useVoiceInput({ active, onNumber, onRaw }: Options) {
         const alts: string[] = Array.from({ length: e.results[0].length },
           (_, i) => e.results[0][i].transcript)
         onRawRef.current?.(alts[0])
+
+        // Direct match: the whole transcript is a number
         for (const r of alts) {
           const n = parseHebrewNumber(r)
           if (n !== null) { onNumberRef.current(n); return }
+        }
+
+        // Player also spoke the card: "שניים כפול שמונה שש עשרה" → 16
+        // Strip the known b-phrase after "כפול", parse whatever follows as the answer.
+        const c = cardRef.current
+        if (c) {
+          for (const r of alts) {
+            const ki = r.indexOf('כפול')
+            if (ki === -1) continue
+            const afterKeful = r.slice(ki + 4).trim()
+            for (const bPhrase of phrasesFor(c.b)) {
+              if (!afterKeful.startsWith(bPhrase)) continue
+              const answerPart = afterKeful.slice(bPhrase.length).trim()
+              const n = parseHebrewNumber(answerPart)
+              if (n !== null) { onNumberRef.current(n); return }
+            }
+          }
         }
       }
 

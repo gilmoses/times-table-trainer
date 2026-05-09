@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import type { Card } from '../types'
-import { useVoiceInput, voiceSupported } from '../hooks/useVoiceInput'
+import { useVoiceInput } from '../hooks/useVoiceInput'
 import { DECK_COLORS, DECK_TEXT } from '../lib/colors'
 import { playWrong, playCorrect, playCorrectWithHelp } from '../lib/sounds'
 import './CardView.css'
@@ -15,6 +15,7 @@ interface OutgoingCard {
   answer: number
   bg: string
   fg: string
+  dir: 'left' | 'right'
 }
 
 interface Props {
@@ -27,9 +28,12 @@ interface Props {
   revealDuration: number
   timeLimitEnabled: boolean
   timeLimit: number
+  advanceOnWrong?: boolean
+  discardDirection?: 'left' | 'right'
+  showStop?: boolean
 }
 
-export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wrongDelay, revealDuration, timeLimitEnabled, timeLimit }: Props) {
+export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wrongDelay, revealDuration, timeLimitEnabled, timeLimit, advanceOnWrong = false, discardDirection = 'left', showStop = false }: Props) {
   const [input, setInput] = useState('')
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
   const [userAnswer, setUserAnswer] = useState<number | null>(null)
@@ -47,7 +51,7 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
   const onResultRef = useRef(onResult)
   onResultRef.current = onResult
 
-  const { listening } = useVoiceInput({
+  useVoiceInput({
     active: micEnabled && feedback === 'idle',
     onNumber: submitAnswer,
     onRaw: (text) => {
@@ -55,6 +59,7 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
       if (t === STOP_COMMAND) onStop()
       else if (t === REVEAL_COMMAND) handleReveal()
     },
+    card,
   })
 
   // Fires before paint — prevents new card's answer flashing on the back face
@@ -68,9 +73,15 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
     setIdlePhase(p => p + 1)
   }, [card])
 
+  // Blur when game ends (showStop false = overlay showing in solo)
+  // Declared before focus so focus wins on two-player mount where showStop is always false
+  useEffect(() => {
+    if (!showStop) inputRef.current?.blur()
+  }, [showStop])
+
   useEffect(() => {
     if (feedback === 'idle') inputRef.current?.focus()
-  }, [feedback])
+  }, [idlePhase, feedback])
 
   // Countdown display — stops (and doesn't restart) once tainted
   useEffect(() => {
@@ -99,12 +110,13 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
         answer: card.a * card.b,
         bg: DECK_COLORS[card.a] ?? DECK_COLORS[1],
         fg: DECK_TEXT[card.a] ?? DECK_TEXT[1],
+        dir: discardDirection,
       })
       onResultRef.current(!tainted, timeMsRef.current)
       discardTimerRef.current = setTimeout(() => setOutgoingCard(null), DISCARD_MS)
     }, correctDelay)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [feedback, correctDelay, card, tainted])
+  }, [feedback, correctDelay, card, tainted, discardDirection])
 
   // Sound feedback
   useEffect(() => {
@@ -122,18 +134,29 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [feedback, wrongDelay])
 
-  // Revealing: show answer, then flip back to idle for re-answer
+  // Revealing: show answer, then either advance (2-player) or flip back to idle (solo)
   useEffect(() => {
     if (feedback !== 'revealing') return
     timerRef.current = setTimeout(() => {
-      answerStartRef.current = Date.now()
-      setIdlePhase(p => p + 1)
-      setFeedback('idle')
-      setInput('')
-      inputRef.current?.focus()
+      if (advanceOnWrong) {
+        setOutgoingCard({
+          answer: card.a * card.b,
+          bg: DECK_COLORS[card.a] ?? DECK_COLORS[1],
+          fg: DECK_TEXT[card.a] ?? DECK_TEXT[1],
+          dir: discardDirection,
+        })
+        discardTimerRef.current = setTimeout(() => setOutgoingCard(null), DISCARD_MS)
+        onResultRef.current(false, timeMsRef.current)
+      } else {
+        answerStartRef.current = Date.now()
+        setIdlePhase(p => p + 1)
+        setFeedback('idle')
+        setInput('')
+        inputRef.current?.focus()
+      }
     }, revealDuration)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [feedback, revealDuration])
+  }, [feedback, revealDuration, advanceOnWrong, card, discardDirection])
 
   function submitAnswer(answer: number) {
     if (feedback !== 'idle') return
@@ -164,10 +187,6 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
 
   return (
     <div className="card-area">
-      {voiceSupported && (
-        <span className={`mic-indicator${listening ? ' on' : ''}`}>🎤</span>
-      )}
-
       <div className="card-scene">
         {/* deck depth — two shadow cards sitting behind the active card */}
         <div className="deck-shadow s2" style={{ background: bg }} />
@@ -188,7 +207,7 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
         {/* outgoing card: animates to the discard pile while showing the answer */}
         {outgoingCard && (
           <div
-            className="card-outgoing"
+            className={`card-outgoing fly-${outgoingCard.dir}`}
             style={{ background: outgoingCard.bg, color: outgoingCard.fg }}
           >
             <p className="card-answer">{outgoingCard.answer}</p>
@@ -199,15 +218,21 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
       <div className="card-aux">
         {feedback === 'idle' && (
           <>
-            <input
-              ref={inputRef}
-              type="number"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder=""
-              className="answer-input"
-            />
+            <div className="answer-row">
+              <input
+                ref={inputRef}
+                type="number"
+                autoFocus
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder=""
+                className="answer-input"
+              />
+              {showStop && (
+                <button className="btn-stop-card" onClick={onStop}>עצור</button>
+              )}
+            </div>
             {timeLimitEnabled && countdown !== null && (
               <div className="time-limit-display">
                 <div className="time-bar-track">
@@ -226,7 +251,7 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
           <p className="aux-text wrong">✗ &nbsp; {userAnswer}</p>
         )}
         {feedback === 'correct' && (
-          <p className="aux-text correct">{tainted ? 'נכון - עם עזרה 👍' : 'נכון! 🎉'}</p>
+          <p className="aux-text correct">{tainted ? 'נכון - עם עזרה' : 'נכון'}</p>
         )}
       </div>
     </div>

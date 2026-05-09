@@ -3,8 +3,13 @@
   font-size: 18px;
   line-height: 1.5;
   color: #1a1a2e;
-  background: #f0f4ff;
   -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: #fde8c8;
+  background-image: radial-gradient(circle, #d97706 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
 }
 
 * {
