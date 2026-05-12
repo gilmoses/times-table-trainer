@@ -44,6 +44,7 @@
   border-radius: 16px;
   padding: 48px 64px;
   box-shadow: 0 4px 24px rgba(180, 83, 9, 0.12);
+  max-width: min(600px, 94vw);
 }
 
 .menu-subtitle {
@@ -99,6 +100,11 @@
   transition: background 0.15s;
 
   &:hover { background: #f3f4f6; }
+}
+
+/* transparent wrapper — children flow directly into .menu-screen's flex column */
+.menu-controls {
+  display: contents;
 }
 
 /* settings toggle + collapsible panel */
@@ -560,14 +566,14 @@
 }
 
 .player-badge-name {
-  font-size: 40px;
+  font-size: clamp(14px, 4vw, 40px);
   font-weight: 700;
   color: #1a1a2e;
   position: relative;
 }
 
 .player-badge-score {
-  font-size: 80px;
+  font-size: clamp(24px, 8vw, 80px);
   font-weight: 700;
   color: #059669;
   line-height: 1;
@@ -581,7 +587,7 @@
 }
 
 .cards-left-number {
-  font-size: 36px;
+  font-size: clamp(14px, 4vw, 36px);
   font-weight: 700;
   color: #374151;
   line-height: 1;
@@ -763,4 +769,112 @@
   text-align: center;
   padding: 0 16px;
   user-select: none;
+}
+
+/* ── iPhone landscape (short viewport ≤500px) ───────────────────────────── */
+@media (orientation: landscape) and (max-height: 500px) {
+
+  /* ── Menu: two independent boxes, edge to edge ───────────────────────────── */
+  .menu-screen {
+    flex-direction: row;
+    align-items: stretch;
+    align-self: stretch;      /* stretch within .app without affecting other screens */
+    gap: 12px;
+    padding: 10px 14px;
+    max-width: none;
+    width: 100%;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .menu-screen > .title,
+  .menu-screen > .menu-subtitle { display: none; }
+
+  /* Left box: deck selections, fills all remaining space */
+  .menu-screen > .deck-grid {
+    flex: 1;
+    align-self: center;
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+    gap: 10px;
+  }
+  .btn-deck { padding: 10px 4px; font-size: 22px; min-width: 0; }
+
+  /* Right box: 240px — wide enough for label + gap + 48px toggle pill */
+  .menu-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 240px;
+    flex-shrink: 0;
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+    justify-content: space-between;
+  }
+
+  /* Mode buttons: fill box width, "שני\nשחקנים" forced by <br/> */
+  .menu-controls .mode-toggle-row { width: 100%; }
+  .menu-controls .btn-mode {
+    flex: 1;
+    white-space: normal;
+    padding: 6px 4px;
+    font-size: 13px;
+    line-height: 1.3;
+    text-align: center;
+  }
+
+  /* Player name inputs: stack vertically so each gets the full box width */
+  .menu-controls .player-name-row   { flex-direction: column; gap: 5px; }
+  .menu-controls .player-name-input { font-size: 13px; padding: 5px 8px; }
+
+  /* Setting rows: tighter gap and smaller label */
+  .menu-controls .setting-row         { gap: 10px; }
+  .menu-controls .setting-row-compact { gap: 6px; }
+  .menu-controls .setting-label       { font-size: 13px; }
+
+  /* Replace overflow-based collapse with instant show/hide — removes horizontal clipping */
+  .menu-controls .settings-panel                { overflow: visible; max-height: none; transition: none; }
+  .menu-controls .settings-panel:not(.open)     { display: none; }
+
+  /* Settings toggle + start fill the box */
+  .menu-controls .btn-settings-toggle { width: 100%; font-size: 13px; padding: 6px 8px; }
+  .menu-controls .btn-start { width: 100%; padding: 10px 8px; font-size: 16px; }
+
+  /* ── Two-player header: name + score on one line ─────────────────────────── */
+  .two-player-header { width: min(580px, 90vw); }
+  .player-badge { flex-direction: row; gap: 8px; align-items: center; padding: 4px 10px; }
+  .player-badge-name  { font-size: 14px; }
+  .player-badge-score { font-size: 22px; }
+  .cards-left-number  { font-size: 18px; }
+  .cards-left-label   { display: none; }
+
+  /* ── Playing screens: compact chrome ─────────────────────────────────────── */
+  .app { gap: 6px; }
+  .card-table, .card-table-wide { width: min(580px, 90vw); }
+  /* auto height so result title is never clipped */
+  .playing-above { height: auto; min-height: 30px; }
+  .playing-below { height: auto; min-height: 30px; }
+  /* hide dimmed card to free space; fixed buttons cover both solo and two-player */
+  .card-table.dimmed { display: none; }
+  /* action buttons: fixed bar at bottom — always visible regardless of card layout */
+  .session-actions {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(4px);
+    border-radius: 14px;
+    padding: 10px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+    width: auto;
+  }
+  .card-aux { height: auto; min-height: 60px; }
+  .answer-input { font-size: 26px; padding: 6px 12px; }
 }

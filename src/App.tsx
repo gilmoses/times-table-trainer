@@ -379,17 +379,6 @@ export default function App() {
         <div className="menu-screen">
           <h1 className="title">לוח הכפל</h1>
 
-          <div className="mode-toggle-row">
-            <button
-              className={`btn-mode${!isTwoPlayer ? ' active' : ''}`}
-              onClick={() => setGameMode('solo')}
-            >יחיד</button>
-            <button
-              className={`btn-mode${isTwoPlayer ? ' active' : ''}`}
-              onClick={() => setGameMode('two-player')}
-            >שני שחקנים</button>
-          </div>
-
           <p className="menu-subtitle">בחרו לוחות</p>
           <div className="deck-grid">
             {TABLE_DECKS.map(n => {
@@ -415,88 +404,101 @@ export default function App() {
             </button>
           </div>
 
-          <button className="btn-settings-toggle" onClick={() => setSettingsOpen(o => !o)}>
-            {settingsOpen ? '▲ הסתר הגדרות' : '▼ הגדרות'}
-          </button>
-          <div className={`settings-panel${settingsOpen ? ' open' : ''}`}>
-          <div className={`menu-mode-extra${isTwoPlayer ? ' two-p' : ''}`}>
-            <div className="two-player-menu-setup">
-              <div className="player-name-row">
-                <input
-                  className="player-name-input"
-                  value={nameEdits[0]}
-                  placeholder={playerNames[0]}
-                  onChange={e => setNameEdits([e.target.value, nameEdits[1]])}
-                />
-                <input
-                  className="player-name-input"
-                  value={nameEdits[1]}
-                  placeholder={playerNames[1]}
-                  onChange={e => setNameEdits([nameEdits[0], e.target.value])}
-                />
-              </div>
-              <div className="setting-row-compact">
-                <span className="setting-label">קלפים לכל שחקן</span>
-                <input
-                  type="number"
-                  className="cards-per-player-input"
-                  value={cardsPerPlayer}
-                  min={1}
-                  max={100}
-                  onChange={e => setCardsPerPlayer(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                />
-              </div>
-              {voiceSupported && (
-                <div className="setting-row">
-                  <span className="setting-label">🎤 מיקרופון</span>
-                  <button
-                    className={`toggle-pill${micEnabled ? ' on' : ''}`}
-                    onClick={() => setMicEnabled(m => !m)}
-                  />
-                </div>
-              )}
+          <div className="menu-controls">
+            <div className="mode-toggle-row">
+              <button
+                className={`btn-mode${!isTwoPlayer ? ' active' : ''}`}
+                onClick={() => setGameMode('solo')}
+              >יחיד</button>
+              <button
+                className={`btn-mode${isTwoPlayer ? ' active' : ''}`}
+                onClick={() => setGameMode('two-player')}
+              >שני<br/>שחקנים</button>
             </div>
-            <div className="menu-settings">
-              {voiceSupported && (
-                <div className="setting-row">
-                  <span className="setting-label">🎤 מיקרופון</span>
-                  <button
-                    className={`toggle-pill${micEnabled ? ' on' : ''}`}
-                    onClick={() => setMicEnabled(m => !m)}
-                  />
-                </div>
-              )}
-              <div className="setting-row">
-                <span className="setting-label">⏱ מרוץ</span>
-                <button
-                  className={`toggle-pill${raceModeEnabled ? ' on' : ''}`}
-                  onClick={() => setRaceModeEnabled(m => !m)}
-                />
-              </div>
-              {raceModeEnabled && (
-                <div className="race-duration-row">
-                  {RACE_DURATIONS.map(s => (
-                    <button
-                      key={s}
-                      className={`btn-duration${raceDuration === s ? ' active' : ''}`}
-                      onClick={() => setRaceDuration(s)}
-                    >
-                      {s >= 60 ? `${s / 60}′` : `${s}″`}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          </div>
 
-          <button
-            className="btn-start"
-            disabled={selectedDecks.length === 0 || (isTwoPlayer && cardsPerPlayer < 1)}
-            onClick={() => isTwoPlayer ? handleStartTwoPlayer(filter) : handleStartDeck(filter)}
-          >
-            התחילו
-          </button>
+            <button className="btn-settings-toggle" onClick={() => setSettingsOpen(o => !o)}>
+              {settingsOpen ? '▲ הסתר הגדרות' : '▼ הגדרות'}
+            </button>
+            <div className={`settings-panel${settingsOpen ? ' open' : ''}`}>
+            <div className={`menu-mode-extra${isTwoPlayer ? ' two-p' : ''}`}>
+              <div className="two-player-menu-setup">
+                <div className="player-name-row">
+                  <input
+                    className="player-name-input"
+                    value={nameEdits[0]}
+                    placeholder={playerNames[0]}
+                    onChange={e => setNameEdits([e.target.value, nameEdits[1]])}
+                  />
+                  <input
+                    className="player-name-input"
+                    value={nameEdits[1]}
+                    placeholder={playerNames[1]}
+                    onChange={e => setNameEdits([nameEdits[0], e.target.value])}
+                  />
+                </div>
+                <div className="setting-row-compact">
+                  <span className="setting-label">קלפים לכל שחקן</span>
+                  <input
+                    type="number"
+                    className="cards-per-player-input"
+                    value={cardsPerPlayer}
+                    min={1}
+                    max={100}
+                    onChange={e => setCardsPerPlayer(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  />
+                </div>
+                {voiceSupported && (
+                  <div className="setting-row">
+                    <span className="setting-label">🎤 מיקרופון</span>
+                    <button
+                      className={`toggle-pill${micEnabled ? ' on' : ''}`}
+                      onClick={() => setMicEnabled(m => !m)}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="menu-settings">
+                {voiceSupported && (
+                  <div className="setting-row">
+                    <span className="setting-label">🎤 מיקרופון</span>
+                    <button
+                      className={`toggle-pill${micEnabled ? ' on' : ''}`}
+                      onClick={() => setMicEnabled(m => !m)}
+                    />
+                  </div>
+                )}
+                <div className="setting-row">
+                  <span className="setting-label">⏱ מרוץ</span>
+                  <button
+                    className={`toggle-pill${raceModeEnabled ? ' on' : ''}`}
+                    onClick={() => setRaceModeEnabled(m => !m)}
+                  />
+                </div>
+                {raceModeEnabled && (
+                  <div className="race-duration-row">
+                    {RACE_DURATIONS.map(s => (
+                      <button
+                        key={s}
+                        className={`btn-duration${raceDuration === s ? ' active' : ''}`}
+                        onClick={() => setRaceDuration(s)}
+                      >
+                        {s >= 60 ? `${s / 60}′` : `${s}″`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            </div>
+
+            <button
+              className="btn-start"
+              disabled={selectedDecks.length === 0 || (isTwoPlayer && cardsPerPlayer < 1)}
+              onClick={() => isTwoPlayer ? handleStartTwoPlayer(filter) : handleStartDeck(filter)}
+            >
+              התחילו
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -554,7 +556,7 @@ export default function App() {
               <div className="winner-card-area">
                 <div className="winner-card">
                   <p className="winner-text">
-                    {tpWinner === -1 ? 'תיקו' : `!${playerNames[tpWinner]} ניצח`}
+                    {tpWinner === -1 ? 'תיקו' : <>ניצחון<br/>!ל{playerNames[tpWinner]}</>}
                   </p>
                 </div>
                 <div className="winner-card-spacer" />
