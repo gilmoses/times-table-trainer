@@ -774,11 +774,12 @@
 /* ── iPhone landscape (short viewport ≤500px) ───────────────────────────── */
 @media (orientation: landscape) and (max-height: 500px) {
 
-  /* ── Menu: two independent boxes, edge to edge ───────────────────────────── */
+  /* ── Menu: two independent full-height boxes ────────────────────────────── */
   .menu-screen {
+    flex: 1;                  /* fill full viewport height */
     flex-direction: row;
-    align-items: stretch;
-    align-self: stretch;      /* stretch within .app without affecting other screens */
+    align-items: stretch;     /* both boxes stretch to match height */
+    align-self: stretch;
     gap: 12px;
     padding: 10px 14px;
     max-width: none;
@@ -791,10 +792,11 @@
   .menu-screen > .title,
   .menu-screen > .menu-subtitle { display: none; }
 
-  /* Left box: deck selections, fills all remaining space */
+  /* Left box: same height as right box, deck buttons expand to fill it */
   .menu-screen > .deck-grid {
     flex: 1;
-    align-self: center;
+    align-self: stretch;
+    grid-template-rows: 1fr 1fr auto;  /* 2 deck rows expand, select-all stays natural */
     background: #fff;
     border-radius: 14px;
     padding: 12px;
@@ -837,12 +839,11 @@
   .menu-controls .setting-row-compact { gap: 6px; }
   .menu-controls .setting-label       { font-size: 13px; }
 
-  /* Replace overflow-based collapse with instant show/hide — removes horizontal clipping */
-  .menu-controls .settings-panel                { overflow: visible; max-height: none; transition: none; }
-  .menu-controls .settings-panel:not(.open)     { display: none; }
+  /* Always show settings — no toggle button needed in landscape */
+  .menu-controls .btn-settings-toggle           { display: none; }
+  .menu-controls .settings-panel                { overflow: visible; max-height: none; transition: none; display: block !important; }
 
-  /* Settings toggle + start fill the box */
-  .menu-controls .btn-settings-toggle { width: 100%; font-size: 13px; padding: 6px 8px; }
+  /* Start button fills the box */
   .menu-controls .btn-start { width: 100%; padding: 10px 8px; font-size: 16px; }
 
   /* ── Two-player header: name + score on one line ─────────────────────────── */
@@ -877,4 +878,8 @@
   }
   .card-aux { height: auto; min-height: 60px; }
   .answer-input { font-size: 26px; padding: 6px 12px; }
+
+  /* mic row: pull to top of two-player setup so it aligns with solo mic position */
+  .menu-controls .two-player-menu-setup { display: flex; flex-direction: column; }
+  .menu-controls .two-player-menu-setup > .setting-row { order: -1; }
 }
