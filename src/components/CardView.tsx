@@ -83,15 +83,19 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
     if (feedback === 'idle') inputRef.current?.focus()
   }, [idlePhase, feedback])
 
-  // Countdown display — stops (and doesn't restart) once tainted
+  // Countdown display — stops (and doesn't restart) once tainted.
+  // timeLimit intentionally omitted from deps: lock in the limit when idle starts,
+  // don't reset the running countdown if the dev panel value changes mid-card.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (feedback !== 'idle' || !timeLimitEnabled || tainted) { setCountdown(null); return }
     setCountdown(timeLimit)
     const iv = setInterval(() => setCountdown(c => (c !== null && c > 0) ? c - 1 : null), 1000)
     return () => clearInterval(iv)
-  }, [feedback, timeLimitEnabled, timeLimit, tainted])
+  }, [feedback, timeLimitEnabled, tainted]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Time limit trigger — stops once tainted
+  // Time limit trigger — stops once tainted.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (feedback !== 'idle' || !timeLimitEnabled || tainted) return
     timerRef.current = setTimeout(() => {
@@ -100,7 +104,7 @@ export function CardView({ card, onResult, onStop, micEnabled, correctDelay, wro
       setFeedback('revealing')
     }, timeLimit * 1000)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [feedback, timeLimitEnabled, timeLimit, tainted])
+  }, [feedback, timeLimitEnabled, tainted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Correct: show answer on back for correctDelay, then fly the card to the discard pile
   useEffect(() => {
