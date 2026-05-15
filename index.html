@@ -4,13 +4,32 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.json" />
     <title>לוח הכפל</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
+    <div id="rotate-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#fef3e2;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:sans-serif;">
+      <div style="font-size:52px">&#8635;</div>
+      <div style="font-size:20px;font-weight:600;color:#92400e;">אנא סובב את המכשיר</div>
+    </div>
     <div id="root"></div>
+    <script>
+      (function() {
+        var el = document.getElementById('rotate-overlay');
+        function check() {
+          var landscape = window.matchMedia('(orientation: landscape) and (hover: none)').matches;
+          el.style.display = landscape ? 'flex' : 'none';
+        }
+        check();
+        window.addEventListener('resize', check);
+        screen.orientation && screen.orientation.addEventListener('change', check);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
