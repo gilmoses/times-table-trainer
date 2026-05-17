@@ -45,10 +45,11 @@ interface UserSettings {
   micEnabled: boolean
   raceModeEnabled: boolean
   raceDuration: number
+  skipTrivial: boolean
 }
 
 function loadSettings(): UserSettings {
-  const defaults: UserSettings = { micEnabled: true, raceModeEnabled: false, raceDuration: 30 }
+  const defaults: UserSettings = { micEnabled: true, raceModeEnabled: false, raceDuration: 30, skipTrivial: false }
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) return { ...defaults, ...JSON.parse(raw) }
@@ -154,6 +155,7 @@ export default function App() {
   const [micEnabled, setMicEnabled] = useState(() => loadSettings().micEnabled)
   const [raceModeEnabled, setRaceModeEnabled] = useState(() => loadSettings().raceModeEnabled)
   const [raceDuration, setRaceDuration] = useState(() => loadSettings().raceDuration)
+  const [skipTrivial, setSkipTrivial] = useState(() => loadSettings().skipTrivial)
   const [raceTimeLeft, setRaceTimeLeft] = useState(0)
 
   // dev settings
@@ -167,8 +169,8 @@ export default function App() {
 
   // persist user settings
   useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ micEnabled, raceModeEnabled, raceDuration }))
-  }, [micEnabled, raceModeEnabled, raceDuration])
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ micEnabled, raceModeEnabled, raceDuration, skipTrivial }))
+  }, [micEnabled, raceModeEnabled, raceDuration, skipTrivial])
 
   // persist dev settings
   useEffect(() => {
@@ -216,7 +218,13 @@ export default function App() {
   // ── helpers ───────────────────────────────────────────────────────────────
 
   function activeCards(d: Card[], filter: number[] | null) {
-    return filter === null ? d : d.filter(c => filter.includes(c.a))
+    const byFactor = filter === null ? d : d.filter(c => filter.includes(c.a))
+    if (!skipTrivial) return byFactor
+    return byFactor.filter(c =>
+      c.a !== 1 && c.b !== 1 &&
+      c.a !== 10 && c.b !== 10 &&
+      c.a * c.b > 10
+    )
   }
 
   function handleStartDeck(filter: number[] | null) {
@@ -456,6 +464,13 @@ export default function App() {
                     />
                   </div>
                 )}
+                <div className="setting-row">
+                  <span className="setting-label">ללא פשוטים</span>
+                  <button
+                    className={`toggle-pill${skipTrivial ? ' on' : ''}`}
+                    onClick={() => setSkipTrivial(s => !s)}
+                  />
+                </div>
               </div>
               <div className="menu-settings">
                 {voiceSupported && (
@@ -487,6 +502,13 @@ export default function App() {
                     ))}
                   </div>
                 )}
+                <div className="setting-row">
+                  <span className="setting-label">ללא פשוטים</span>
+                  <button
+                    className={`toggle-pill${skipTrivial ? ' on' : ''}`}
+                    onClick={() => setSkipTrivial(s => !s)}
+                  />
+                </div>
               </div>
             </div>
             </div>

@@ -59,7 +59,11 @@ export function pickNextCard(cards: Card[], exclude?: Card, sessionErrors?: Reco
     return weighted[Math.floor(Math.random() * weighted.length)]
   }
 
-  // No session errors yet: prefer least-practiced third to avoid repeating the same card
+  // No session errors yet: prefer least-practiced third, randomised within each tier
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]]
+  }
   pool.sort((a, b) => a.repetitions - b.repetitions)
   const slice = pool.slice(0, Math.max(1, Math.ceil(pool.length / 3)))
   return slice[Math.floor(Math.random() * slice.length)]
