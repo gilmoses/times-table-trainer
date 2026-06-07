@@ -385,7 +385,7 @@ export default function App() {
     return (
       <div className="app">
         <div className="menu-screen">
-          <h1 className="title">לוח הכפל</h1>
+          <h1 className="title">אלופי הכפל</h1>
 
           <p className="menu-subtitle">בחרו לוחות</p>
           <div className="deck-grid">
@@ -405,10 +405,13 @@ export default function App() {
             })}
             <button
               className="btn-select-all"
-              style={{ gridColumn: '1 / -1' }}
+              style={{
+                gridColumn: '1 / -1',
+                background: `linear-gradient(to right, ${TABLE_DECKS.map(n => DECK_COLORS[n].replace('rgb(', 'rgba(').replace(')', ', 0.45)')).join(', ')})`,
+              }}
               onClick={() => setSelectedDecks(allSelected ? [] : [...TABLE_DECKS])}
             >
-              {allSelected ? 'בטל הכל' : 'בחר הכל'}
+              {allSelected ? 'ביטול כל הלוחות' : 'בחירת כל הלוחות'}
             </button>
           </div>
 
