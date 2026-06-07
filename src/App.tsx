@@ -420,11 +420,11 @@ export default function App() {
               <button
                 className={`btn-mode${!isTwoPlayer ? ' active' : ''}`}
                 onClick={() => setGameMode('solo')}
-              >יחיד</button>
+              >סולו</button>
               <button
                 className={`btn-mode${isTwoPlayer ? ' active' : ''}`}
                 onClick={() => setGameMode('two-player')}
-              >שני<br/>שחקנים</button>
+              >זוגי</button>
             </div>
 
             <button className="btn-settings-toggle" onClick={() => setSettingsOpen(o => !o)}>
