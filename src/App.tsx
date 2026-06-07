@@ -94,7 +94,7 @@ function loadPlayerNames(): [string, string] {
       if (Array.isArray(parsed) && parsed.length === 2) return parsed as [string, string]
     }
   } catch { /* ignore */ }
-  return ['שחקן 1', 'שחקן 2']
+  return ['שחקן/ית 1', 'שחקן/ית 2']
 }
 
 function loadCardsPerPlayer(): number {
@@ -448,7 +448,7 @@ export default function App() {
                   />
                 </div>
                 <div className="setting-row-compact">
-                  <span className="setting-label">קלפים לכל שחקן</span>
+                  <span className="setting-label">קלפים לכל שחקן/ית</span>
                   <input
                     type="number"
                     className="cards-per-player-input"
